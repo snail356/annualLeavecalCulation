@@ -95,6 +95,7 @@ main {
   padding: 0 18px 16px;
   color: var(--muted);
   font-size: 14px;
+  flex-wrap: wrap;
 }
 
 .filter-bar.is-hidden {
@@ -111,6 +112,35 @@ main {
   font-family: inherit;
   font-size: 14px;
   color: var(--ink);
+}
+
+.upload-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.upload-label {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff5ef;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.upload-label:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(38, 26, 18, 0.12);
+}
+
+.upload-status {
+  color: #b33b2e;
+  font-size: 12px;
 }
 
 .table-wrap {

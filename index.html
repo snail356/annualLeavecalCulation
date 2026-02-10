@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>請假表單彙整</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
   </head>
   <body>
     <header>
       <h1>請假表單彙整</h1>
-      <p class="subtitle">來源：forms.json</p>
+      <p class="subtitle">來源：<span id="source-label">data/forms.json</span></p>
     </header>
     <main>
       <div id="status" class="loading">讀取中…</div>
@@ -36,6 +36,9 @@
         </button>
       </div>
       <div class="filter-bar">
+        <span id="upload-status" class="upload-status" hidden></span>
+        <label class="upload-label" for="json-upload">上傳 JSON</label>
+        <input id="json-upload" class="upload-input" type="file" accept=".json,application/json" />
         <label for="year-filter">年度篩選</label>
         <select id="year-filter">
           <option value="all">全部</option>
@@ -73,6 +76,6 @@
       </section>
     </main>
 
-    <script src="./scripts.js"></script>
+    <script src="./js/scripts.js"></script>
   </body>
 </html>

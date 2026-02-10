@@ -26,6 +26,9 @@ const body = document.getElementById("table-body");
 const annualBody = document.getElementById("annual-body");
 const yearFilter = document.getElementById("year-filter");
 const filterBar = document.querySelector(".filter-bar");
+const uploadInput = document.getElementById("json-upload");
+const uploadStatus = document.getElementById("upload-status");
+const sourceLabel = document.getElementById("source-label");
 let allItems = [];
 
 const renderHead = () => {
@@ -137,6 +140,7 @@ const formatHours = (value) => {
 };
 
 const renderAnnual = (items) => {
+  annualBody.textContent = "";
   const totals = new Map();
   items.forEach((item) => {
     const kv = item?.detail?.kv || {};
@@ -202,6 +206,31 @@ const renderAnnual = (items) => {
   annualBody.appendChild(fragment);
 };
 
+const setUploadStatus = (message) => {
+  if (!uploadStatus) return;
+  if (!message) {
+    uploadStatus.hidden = true;
+    uploadStatus.textContent = "";
+    return;
+  }
+  uploadStatus.hidden = false;
+  uploadStatus.textContent = message;
+};
+
+const applyData = (data, sourceText) => {
+  allItems = data;
+  populateYearFilter(allItems);
+  if (yearFilter) {
+    yearFilter.value = "all";
+  }
+  renderRows(getFilteredItems());
+  renderAnnual(allItems);
+  if (sourceLabel && sourceText) {
+    sourceLabel.textContent = sourceText;
+  }
+  setUploadStatus("");
+};
+
 const setActiveTab = (key) => {
   tabButtons.forEach((btn) => {
     const isActive = btn.dataset.tab === key;
@@ -230,10 +259,33 @@ if (yearFilter) {
   });
 }
 
-fetch("./forms.json")
+if (uploadInput) {
+  uploadInput.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data)) {
+          throw new Error("JSON 內容不是陣列");
+        }
+        applyData(data, file.name);
+      } catch (error) {
+        setUploadStatus("JSON 格式錯誤，請確認內容。");
+      }
+    };
+    reader.onerror = () => {
+      setUploadStatus("讀取檔案失敗，請重試。");
+    };
+    reader.readAsText(file);
+  });
+}
+
+fetch("./data/forms.json")
   .then((response) => {
     if (!response.ok) {
-      throw new Error("無法讀取 forms.json");
+      throw new Error("無法讀取 data/forms.json");
     }
     return response.json();
   })
@@ -241,15 +293,12 @@ fetch("./forms.json")
     if (!Array.isArray(data)) {
       throw new Error("資料格式不是陣列");
     }
-    allItems = data;
     statusEl.remove();
     tabsEl.hidden = false;
     tableWrap.hidden = false;
     annualWrap.hidden = false;
     panels.forms.hidden = false;
-    populateYearFilter(allItems);
-    renderRows(getFilteredItems());
-    renderAnnual(allItems);
+    applyData(data, "data/forms.json");
   })
   .catch((error) => {
     showError(`${error.message}，請確認檔案與位置。`);
