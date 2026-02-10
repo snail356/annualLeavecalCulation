@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>請假表單彙整</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>請假表單彙整</h1>
+      <p class="subtitle">來源：forms.json</p>
+    </header>
+    <main>
+      <div id="status" class="loading">讀取中…</div>
+      <div class="tabs" role="tablist" hidden>
+        <button
+          class="tab-button is-active"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          aria-controls="tab-forms"
+          data-tab="forms"
+        >
+          表單明細
+        </button>
+        <button
+          class="tab-button"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-annual"
+          data-tab="annual"
+        >
+          年度請假時數計算
+        </button>
+      </div>
+      <div class="filter-bar">
+        <label for="year-filter">年度篩選</label>
+        <select id="year-filter">
+          <option value="all">全部</option>
+        </select>
+      </div>
+      <section class="card tab-panel" id="tab-forms" role="tabpanel" hidden>
+        <div class="table-wrap" hidden>
+          <table aria-label="請假表單列表">
+            <thead>
+              <tr id="table-head"></tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card tab-panel" id="tab-annual" role="tabpanel" hidden>
+        <div class="table-wrap" hidden>
+          <table aria-label="年度請假時數統計">
+            <thead>
+              <tr>
+                <th>年度</th>
+                <th>總請假時數</th>
+                <th>天數</th>
+                <th>病假(時數)</th>
+                <th>喪假(時數)</th>
+                <th>疫苗假(時數)</th>
+                <th>婚假(時數)</th>
+                <th>年假時數</th>
+                <th>年假天數</th>
+              </tr>
+            </thead>
+            <tbody id="annual-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="./scripts.js"></script>
+  </body>
+</html>
