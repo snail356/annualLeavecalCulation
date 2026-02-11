@@ -38,6 +38,7 @@ const entitlementTotalBody = document.getElementById("entitlement-total-body");
 let allItems = [];
 let entitlementMap = new Map();
 let annualLeaveByYear = new Map();
+let annualLeaveUsageByYear = new Map();
 
 const renderHead = () => {
   headRow.textContent = "";
@@ -145,11 +146,13 @@ const getFilteredItems = () => {
 
 const formatDaysHours = (value) => {
   if (!Number.isFinite(Number(value))) return "";
-  const total = Number(value) || 0;
+  let total = Number(value) || 0;
+  const sign = total < 0 ? "-" : "";
+  total = Math.abs(total);
   const days = Math.floor(total / 8);
   let hours = Math.round((total - days * 8) * 100) / 100;
   if (Math.abs(hours - Math.round(hours)) < 1e-8) hours = Math.round(hours);
-  return `${days}天${hours}小時`;
+  return `${sign}${days}天${hours}小時`;
 };
 
 const renderAnnual = (items) => {
@@ -211,16 +214,41 @@ const renderAnnual = (items) => {
     marriageCell.textContent = formatDaysHours(entry?.typeHours?.婚假 || 0);
     annualHoursCell.textContent = formatDaysHours(annualHours);
     tr.appendChild(yearCell);
+    // 年假時數放在最前面（在年度之後）
+    tr.appendChild(annualHoursCell);
     tr.appendChild(hoursCell);
     tr.appendChild(sickCell);
     tr.appendChild(bereavementCell);
     tr.appendChild(vaccineCell);
     tr.appendChild(publicCell);
     tr.appendChild(marriageCell);
-    tr.appendChild(annualHoursCell);
     fragment.appendChild(tr);
   });
   annualBody.appendChild(fragment);
+};
+
+const isAnnualLeaveType = (value) => {
+  if (!value) return false;
+  const text = String(value).trim();
+  return text.includes("年假") || text.includes("特休");
+};
+
+const computeAnnualLeaveUsage = (items) => {
+  const usage = new Map();
+  items.forEach((item) => {
+    const kv = item?.detail?.kv || {};
+    const type = kv["假别"] || "";
+    if (!isAnnualLeaveType(type)) return;
+    // 只計入已核准/完成的表單
+    if (kv["表單目前狀態"] !== "同意結束(待歸檔)") return;
+    const year = extractYear(kv["起始日期"] || kv["申請時間"]);
+    if (!year) return;
+    const hours = Number.parseFloat(kv["请假时数"]);
+    if (!Number.isFinite(hours)) return;
+    const key = Number(year);
+    usage.set(key, (usage.get(key) || 0) + hours);
+  });
+  annualLeaveUsageByYear = usage;
 };
 
 const setUploadStatus = (message) => {
@@ -254,10 +282,12 @@ const clearEntitlementTables = () => {
 const splitDaysHours = (hours) => {
   if (!Number.isFinite(hours)) return { days: "0", hours: "0" };
   const total = Number(hours) || 0;
-  const days = Math.floor(total / 8);
-  let remain = Math.round((total - days * 8) * 100) / 100;
+  const sign = total < 0 ? "-" : "";
+  const absTotal = Math.abs(total);
+  const days = Math.floor(absTotal / 8);
+  let remain = Math.round((absTotal - days * 8) * 100) / 100;
   if (Math.abs(remain - Math.round(remain)) < 1e-8) remain = Math.round(remain);
-  return { days: String(days), hours: String(remain) };
+  return { days: sign + String(days), hours: String(remain) };
 };
 
 const appendRow = (tbody, label, hoursValue, prefixIcon = "") => {
@@ -281,6 +311,9 @@ const setExcelResult = (payload, isError = false) => {
   excelResult.hidden = false;
   excelResult.classList.toggle("is-error", Boolean(isError));
   clearEntitlementTables();
+  // 清除舊的明細顯示（移除所有，以免重複疊加）
+  const oldDebugs = excelResult.querySelectorAll('.used-forms-debug');
+  oldDebugs.forEach((el) => el.remove());
   if (!payload || typeof payload !== "object") {
     if (entitlementTotalBody) {
       const tr = document.createElement("tr");
@@ -303,13 +336,15 @@ const setExcelResult = (payload, isError = false) => {
     totalRemainingHours
   } = payload;
 
-  appendRow(entitlementPrevBody, "前一年特休（去年給的）", prevEntitlementHours);
-  appendRow(entitlementPrevBody, "前一年已休", -Math.abs(prevUsedHours));
-  appendRow(entitlementPrevBody, "前一年剩餘", prevRemainingHours, "✓ ");
+  const prevLabelBase = "前一年 ";
+  appendRow(entitlementPrevBody, `${prevLabelBase}特休（去年給的）`, prevEntitlementHours);
+  appendRow(entitlementPrevBody, `${prevLabelBase}已休`, -Math.abs(prevUsedHours));
+  appendRow(entitlementPrevBody, `${prevLabelBase}剩餘`, prevRemainingHours, "✓ ");
 
-  appendRow(entitlementCurrentBody, "當年特休（去年給的）", currentEntitlementHours);
-  appendRow(entitlementCurrentBody, "今年已休", -Math.abs(currentUsedHours));
-  appendRow(entitlementCurrentBody, "今年剩餘", currentRemainingHours, "✓ ");
+  const currLabelBase = "今年 ";
+  appendRow(entitlementCurrentBody, `${currLabelBase}特休（去年給的）`, currentEntitlementHours);
+  appendRow(entitlementCurrentBody, `${currLabelBase}已休`, -Math.abs(currentUsedHours));
+  appendRow(entitlementCurrentBody, `${currLabelBase}剩餘`, currentRemainingHours, "✓ ");
 
   if (entitlementTotalBody) {
     const tr = document.createElement("tr");
@@ -325,6 +360,49 @@ const setExcelResult = (payload, isError = false) => {
     tr.appendChild(tdHours);
     entitlementTotalBody.appendChild(tr);
   }
+
+  // 顯示被計入的表單明細（debug），方便確認已休來源
+  const makeFormsList = (year) => {
+    const list = document.createElement('div');
+    list.className = 'used-forms-debug';
+    const h = document.createElement('h4');
+    h.textContent = `已計入 ${year} 的表單明細`;
+    list.appendChild(h);
+    const table = document.createElement('table');
+    table.className = 'debug-table';
+    const thead = document.createElement('thead');
+    const thr = document.createElement('tr');
+    ['表單編號', '假别', '起始日期', '请假时数'].forEach((t) => { const th = document.createElement('th'); th.textContent = t; thr.appendChild(th); });
+    thead.appendChild(thr);
+    table.appendChild(thead);
+    const tb = document.createElement('tbody');
+    const rows = getUsedFormsByYear(year);
+    rows.forEach((r) => {
+      const tr = document.createElement('tr');
+      const tdId = document.createElement('td'); tdId.textContent = r.id; tr.appendChild(tdId);
+      const tdType = document.createElement('td'); tdType.textContent = r.type; tr.appendChild(tdType);
+      const tdDate = document.createElement('td'); tdDate.textContent = r.start; tr.appendChild(tdDate);
+      const tdHours = document.createElement('td'); tdHours.textContent = r.hours; tr.appendChild(tdHours);
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb);
+      // 加入總計（小時與天小時）
+      const totalHours = rows.reduce((s, it) => s + Number(it.hours || 0), 0);
+      const totalDiv = document.createElement('div');
+      totalDiv.className = 'debug-total';
+      totalDiv.textContent = `總計: ${totalHours} 小時 ／ ${formatDaysHours(totalHours)}`;
+      list.appendChild(table);
+      list.appendChild(totalDiv);
+    return list;
+  };
+
+  // 附加前一年與今年的細項（以目前日曆年的已休為基準）
+  const usedYearPrev = (new Date().getFullYear() - 1);
+  const usedYearCurr = new Date().getFullYear();
+  const prevList = makeFormsList(usedYearPrev);
+  const currList = makeFormsList(usedYearCurr);
+  excelResult.appendChild(prevList);
+  excelResult.appendChild(currList);
 };
 
 const getEntitlementDays = (year, month) => {
@@ -333,8 +411,27 @@ const getEntitlementDays = (year, month) => {
   return entry ? entry.days : null;
 };
 
+const getUsedFormsByYear = (year) => {
+  if (!Array.isArray(allItems) || !year) return [];
+  const result = [];
+  allItems.forEach((item) => {
+    const kv = item?.detail?.kv || {};
+    const type = kv['假别'] || '';
+    // 只列出已核准的年假/特休申請
+    if (kv['表單目前狀態'] !== '同意結束(待歸檔)') return;
+    if (!isAnnualLeaveType(type)) return;
+    const itemYear = extractYear(kv['起始日期'] || kv['申請時間']);
+    if (!itemYear) return;
+    if (Number(itemYear) !== Number(year)) return;
+    const hours = Number.parseFloat(kv['请假时数']);
+    if (!Number.isFinite(hours)) return;
+    result.push({ id: item.id, type, start: kv['起始日期'] || kv['申請時間'], hours });
+  });
+  return result;
+};
+
 const getAnnualLeaveHoursByYear = (year) => {
-  const hours = annualLeaveByYear.get(year);
+  const hours = annualLeaveUsageByYear.get(year);
   if (!Number.isFinite(hours)) return 0;
   return Math.round(hours * 100) / 100;
 };
@@ -424,6 +521,9 @@ const updateEntitlementResult = () => {
     setExcelResult("請先上傳 Excel 檔案。", true);
     return;
   }
+  if (annualLeaveUsageByYear.size === 0 && allItems.length > 0) {
+    computeAnnualLeaveUsage(allItems);
+  }
   const dateParts = hireDateInput.value.split("-");
   const year = Number(dateParts[0]);
   const month = Number(dateParts[1]);
@@ -438,22 +538,43 @@ const updateEntitlementResult = () => {
     return;
   }
   const prevYear = year - 1;
-  const prevLabel = `${prevYear}-${String(month).padStart(2, "0")}`;
-  const prevDays = getEntitlementDays(prevYear, month);
-  if (prevDays === null) {
-    setExcelResult(`找不到前一年 ${prevLabel} 的特休天數。`, true);
-    return;
+  // 依使用者需求："前一年 特休（去年給的）" 取 Excel 中的「到職年 + 1」月份
+  const lookupPrevEntitlementYear = year + 1;
+  const prevLabel = `${lookupPrevEntitlementYear}-${String(month).padStart(2, "0")}`;
+  let prevDays = null;
+  const nowYear = new Date().getFullYear();
+  if (year === nowYear) {
+    // 到職日為今年：不計算前一年項目，直接視為 0
+    prevDays = 0;
+  } else {
+    prevDays = getEntitlementDays(lookupPrevEntitlementYear, month);
+    if (prevDays === null) {
+      setExcelResult(`找不到前一年 ${prevLabel} 的特休天數。`, true);
+      return;
+    }
   }
-  const usedHoursThisYear = getAnnualLeaveHoursByYear(year);
-  const usedHoursPrevYear = getAnnualLeaveHoursByYear(prevYear);
+  // 已休的年份以「現在」為基準：
+  // 前一年已休 = 現在年份 - 1；今年已休 = 現在年份
+  const usedYearPrev = new Date().getFullYear() - 1;
+  const usedYearCurr = new Date().getFullYear();
+  // 今年已休仍以目前日曆年累計已休（年假/特休）為準
+  const usedHoursThisYear = getAnnualLeaveHoursByYear(usedYearCurr);
+  // 前一年已休直接使用年度請假時數中的「年假」欄位（若有），否則回退到按表單年累計
+  let usedHoursPrevYear = 0;
+  if (year === nowYear) {
+    usedHoursPrevYear = 0;
+  } else {
+    usedHoursPrevYear = annualLeaveByYear.get(prevYear) || getAnnualLeaveHoursByYear(usedYearPrev);
+  }
   const currentHours = Math.round(currentDays * 8 * 100) / 100;
   const prevHours = Math.round(prevDays * 8 * 100) / 100;
   const prevRemainingHours = Math.round((prevHours - usedHoursPrevYear) * 100) / 100;
   const currentRemainingHours = Math.round(
     (currentHours - usedHoursThisYear) * 100
   ) / 100;
+  // 若前一年剩餘為負數，則不計入總剩餘
   const totalRemainingHours = Math.round(
-    (prevRemainingHours + currentRemainingHours) * 100
+    ((prevRemainingHours > 0 ? prevRemainingHours : 0) + currentRemainingHours) * 100
   ) / 100;
 
   setExcelResult({
@@ -463,7 +584,12 @@ const updateEntitlementResult = () => {
     currentEntitlementHours: currentHours,
     currentUsedHours: usedHoursThisYear,
     currentRemainingHours,
-    totalRemainingHours
+    totalRemainingHours,
+    prevYear,
+    currentYear: year
+    ,
+    prevUsedYear: usedYearPrev,
+    currentUsedYear: usedYearCurr
   });
 };
 
@@ -475,6 +601,10 @@ const applyData = (data, sourceText) => {
   }
   renderRows(getFilteredItems());
   renderAnnual(allItems);
+  computeAnnualLeaveUsage(allItems);
+  if (entitlementMap.size > 0 && hireDateInput?.value) {
+    updateEntitlementResult();
+  }
   if (sourceLabel && sourceText) {
     sourceLabel.textContent = sourceText;
   }
@@ -586,6 +716,53 @@ if (excelUpload) {
   });
 }
 
+const loadDefaultExcel = () => {
+  if (typeof XLSX === "undefined") {
+    // 如果 SheetJS 還沒載入，稍等再試一次
+    setTimeout(loadDefaultExcel, 500);
+    return;
+  }
+  fetch("./data/annual_leave.xlsx")
+    .then((res) => {
+      if (!res.ok) {
+        // 沒有預設檔案，不顯示錯誤，使用者可手動上傳
+        setExcelStatus("");
+        return null;
+      }
+      return res.arrayBuffer();
+    })
+    .then((buffer) => {
+      if (!buffer) return;
+      try {
+        const data = new Uint8Array(buffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) throw new Error("找不到工作表");
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, {
+          header: 1,
+          raw: true,
+          defval: ""
+        });
+        const parsed = parseEntitlementRows(rows);
+        entitlementMap = parsed.map;
+        if (parsed.error) {
+          setExcelStatus(parsed.error);
+          setExcelResult(parsed.error, true);
+          return;
+        }
+        setExcelStatus("已載入：data/annual_leave.xlsx");
+        updateEntitlementResult();
+      } catch (err) {
+        entitlementMap = new Map();
+        setExcelStatus("解析預設 Excel 失敗。");
+      }
+    })
+    .catch(() => {
+      // 忽略 fetch 錯誤，保留現有上傳流程
+    });
+};
+
 fetch("./data/forms.json")
   .then((response) => {
     if (!response.ok) {
@@ -603,6 +780,8 @@ fetch("./data/forms.json")
     annualWrap.hidden = false;
     panels.forms.hidden = false;
     applyData(data, "data/forms.json");
+    // 嘗試自動載入 workspace 下的預設 Excel 檔案，方便測試
+    loadDefaultExcel();
   })
   .catch((error) => {
     showError(`${error.message}，請確認檔案與位置。`);
