@@ -222,6 +222,21 @@ tbody tr:hover {
   color: var(--muted);
 }
 
+.annual-bold {
+  font-weight: 900;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+  font-size: 1.03em;
+}
+
+/* 年假欄內的數字也更顯眼 */
+.annual-bold .num { font-weight: 900; color: var(--ink); }
+
+/* 數字與單位樣式：單位字體稍小 */
+.num { font-size: 1em; font-weight: 600; color: var(--ink); }
+.unit { font-size: 0.85em; margin-left: 4px; color: var(--muted); }
+
 .loading,
 .error {
   padding: 18px 20px;

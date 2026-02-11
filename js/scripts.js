@@ -155,6 +155,19 @@ const formatDaysHours = (value) => {
   return `${sign}${days}天${hours}小時`;
 };
 
+const renderDaysHoursHTML = (value) => {
+  if (!Number.isFinite(Number(value))) return "";
+  const parts = splitDaysHours(value);
+  const days = parts.days;
+  const hours = parts.hours;
+  const dnum = Number(days) || 0;
+  const hnum = Number(hours) || 0;
+  if (dnum === 0 && hnum === 0) {
+    return `<span class="muted">-</span>`;
+  }
+  return `<span class="num">${days}</span><span class="unit">天</span> <span class="num">${hours}</span><span class="unit">小時</span>`;
+};
+
 const renderAnnual = (items) => {
   annualBody.textContent = "";
   const totals = new Map();
@@ -197,31 +210,60 @@ const renderAnnual = (items) => {
     const tr = document.createElement("tr");
     const yearCell = document.createElement("td");
     const hoursCell = document.createElement("td");
+    const annualHoursCell = document.createElement("td");
     const sickCell = document.createElement("td");
     const bereavementCell = document.createElement("td");
     const vaccineCell = document.createElement("td");
     const publicCell = document.createElement("td");
     const marriageCell = document.createElement("td");
-    const annualHoursCell = document.createElement("td");
     const annualHours = entry?.typeHours?.年假 || 0;
     yearCell.textContent = year;
     const hoursValue = entry?.totalHours || 0;
-    hoursCell.textContent = formatDaysHours(hoursValue);
-    sickCell.textContent = formatDaysHours(entry?.typeHours?.病假 || 0);
-    bereavementCell.textContent = formatDaysHours(entry?.typeHours?.喪假 || 0);
-    vaccineCell.textContent = formatDaysHours(entry?.typeHours?.疫苗假 || 0);
-    publicCell.textContent = formatDaysHours(entry?.typeHours?.公假 || 0);
-    marriageCell.textContent = formatDaysHours(entry?.typeHours?.婚假 || 0);
-    annualHoursCell.textContent = formatDaysHours(annualHours);
+    // render cell html
+    hoursCell.innerHTML = renderDaysHoursHTML(hoursValue);
+    annualHoursCell.innerHTML = renderDaysHoursHTML(annualHours);
+    const sickVal = entry?.typeHours?.病假 || 0;
+    const bereaveVal = entry?.typeHours?.喪假 || 0;
+    const vacVal = entry?.typeHours?.疫苗假 || 0;
+    const pubVal = entry?.typeHours?.公假 || 0;
+    const marVal = entry?.typeHours?.婚假 || 0;
+    sickCell.innerHTML = renderDaysHoursHTML(sickVal);
+    bereavementCell.innerHTML = renderDaysHoursHTML(bereaveVal);
+    vaccineCell.innerHTML = renderDaysHoursHTML(vacVal);
+    publicCell.innerHTML = renderDaysHoursHTML(pubVal);
+    marriageCell.innerHTML = renderDaysHoursHTML(marVal);
+    // append in order: 年度, 總請假時數, 年假時數, 病假...
     tr.appendChild(yearCell);
-    // 年假時數放在最前面（在年度之後）
-    tr.appendChild(annualHoursCell);
     tr.appendChild(hoursCell);
+    tr.appendChild(annualHoursCell);
     tr.appendChild(sickCell);
     tr.appendChild(bereavementCell);
     tr.appendChild(vaccineCell);
     tr.appendChild(publicCell);
     tr.appendChild(marriageCell);
+    // styling: if a numeric value exists (>0 or <0), show as black; otherwise muted
+    const setMuting = (td, value) => {
+      const num = Number(value) || 0;
+      if (Math.abs(num) > 0) {
+        td.classList.remove('muted');
+      } else {
+        td.classList.add('muted');
+      }
+    };
+    // 年假欄若有數字則加粗且為黑色，否則灰色
+    if (Math.abs(Number(annualHours)) > 0) {
+      annualHoursCell.classList.add('annual-bold');
+      annualHoursCell.classList.remove('muted');
+    } else {
+      annualHoursCell.classList.remove('annual-bold');
+      annualHoursCell.classList.add('muted');
+    }
+    setMuting(hoursCell, hoursValue);
+    setMuting(sickCell, sickVal);
+    setMuting(bereavementCell, bereaveVal);
+    setMuting(vaccineCell, vacVal);
+    setMuting(publicCell, pubVal);
+    setMuting(marriageCell, marVal);
     fragment.appendChild(tr);
   });
   annualBody.appendChild(fragment);
@@ -298,8 +340,19 @@ const appendRow = (tbody, label, hoursValue, prefixIcon = "") => {
   const tdHours = document.createElement("td");
   const parts = splitDaysHours(hoursValue);
   tdLabel.textContent = `${prefixIcon}${label}`.trim();
-  tdDays.textContent = `${parts.days}天`;
-  tdHours.textContent = `${parts.hours}小時`;
+  const dnum = Number(parts.days) || 0;
+  const hnum = Number(parts.hours) || 0;
+  if (dnum === 0 && hnum === 0) {
+    tdDays.innerHTML = `<span class="muted">-</span>`;
+    tdHours.innerHTML = ``;
+    tdDays.classList.add('muted');
+    tdHours.classList.add('muted');
+  } else {
+    tdDays.innerHTML = `<span class="num">${parts.days}</span><span class="unit">天</span>`;
+    tdHours.innerHTML = `<span class="num">${parts.hours}</span><span class="unit">小時</span>`;
+    tdDays.classList.remove('muted');
+    tdHours.classList.remove('muted');
+  }
   tr.appendChild(tdLabel);
   tr.appendChild(tdDays);
   tr.appendChild(tdHours);
@@ -337,11 +390,30 @@ const setExcelResult = (payload, isError = false) => {
   } = payload;
 
   const prevLabelBase = "前一年 ";
-  appendRow(entitlementPrevBody, `${prevLabelBase}特休（去年給的）`, prevEntitlementHours);
-  appendRow(entitlementPrevBody, `${prevLabelBase}已休`, -Math.abs(prevUsedHours));
-  appendRow(entitlementPrevBody, `${prevLabelBase}剩餘`, prevRemainingHours, "✓ ");
+  const prevTable = entitlementPrevBody?.closest && entitlementPrevBody.closest('table');
+  if (payload.includePrev === false) {
+    if (prevTable) prevTable.hidden = true;
+  } else {
+    if (prevTable) prevTable.hidden = false;
+    // 更新表頭為前一年年份
+    if (payload.prevYear && prevTable) {
+      const th = prevTable.querySelector('thead th');
+      if (th) th.textContent = String(payload.prevYear);
+    }
+    appendRow(entitlementPrevBody, `${prevLabelBase}特休（去年給的）`, prevEntitlementHours);
+    appendRow(entitlementPrevBody, `${prevLabelBase}已休`, -Math.abs(prevUsedHours));
+    appendRow(entitlementPrevBody, `${prevLabelBase}剩餘`, prevRemainingHours, "✓ ");
+  }
 
   const currLabelBase = "今年 ";
+  const currTable = entitlementCurrentBody?.closest && entitlementCurrentBody.closest('table');
+  if (currTable) {
+    currTable.hidden = false;
+    if (payload.currentYear) {
+      const th = currTable.querySelector('thead th');
+      if (th) th.textContent = String(payload.currentYear);
+    }
+  }
   appendRow(entitlementCurrentBody, `${currLabelBase}特休（去年給的）`, currentEntitlementHours);
   appendRow(entitlementCurrentBody, `${currLabelBase}已休`, -Math.abs(currentUsedHours));
   appendRow(entitlementCurrentBody, `${currLabelBase}剩餘`, currentRemainingHours, "✓ ");
@@ -353,56 +425,25 @@ const setExcelResult = (payload, isError = false) => {
     const tdHours = document.createElement("td");
     const parts = splitDaysHours(totalRemainingHours);
     tdLabel.textContent = "總剩餘";
-    tdDays.textContent = `${parts.days}天`;
-    tdHours.textContent = `${parts.hours}小時`;
+    const totalDaysNum = Number(parts.days) || 0;
+    const totalHoursNum = Number(parts.hours) || 0;
+    if (totalDaysNum === 0 && totalHoursNum === 0) {
+      tdDays.innerHTML = `<span class="muted">-</span>`;
+      tdHours.innerHTML = ``;
+      tdDays.classList.add('muted');
+      tdHours.classList.add('muted');
+    } else {
+      tdDays.innerHTML = `<span class="num">${parts.days}</span><span class="unit">天</span>`;
+      tdHours.innerHTML = `<span class="num">${parts.hours}</span><span class="unit">小時</span>`;
+      tdDays.classList.remove('muted');
+      tdHours.classList.remove('muted');
+    }
     tr.appendChild(tdLabel);
     tr.appendChild(tdDays);
     tr.appendChild(tdHours);
     entitlementTotalBody.appendChild(tr);
   }
-
-  // 顯示被計入的表單明細（debug），方便確認已休來源
-  const makeFormsList = (year) => {
-    const list = document.createElement('div');
-    list.className = 'used-forms-debug';
-    const h = document.createElement('h4');
-    h.textContent = `已計入 ${year} 的表單明細`;
-    list.appendChild(h);
-    const table = document.createElement('table');
-    table.className = 'debug-table';
-    const thead = document.createElement('thead');
-    const thr = document.createElement('tr');
-    ['表單編號', '假别', '起始日期', '请假时数'].forEach((t) => { const th = document.createElement('th'); th.textContent = t; thr.appendChild(th); });
-    thead.appendChild(thr);
-    table.appendChild(thead);
-    const tb = document.createElement('tbody');
-    const rows = getUsedFormsByYear(year);
-    rows.forEach((r) => {
-      const tr = document.createElement('tr');
-      const tdId = document.createElement('td'); tdId.textContent = r.id; tr.appendChild(tdId);
-      const tdType = document.createElement('td'); tdType.textContent = r.type; tr.appendChild(tdType);
-      const tdDate = document.createElement('td'); tdDate.textContent = r.start; tr.appendChild(tdDate);
-      const tdHours = document.createElement('td'); tdHours.textContent = r.hours; tr.appendChild(tdHours);
-      tb.appendChild(tr);
-    });
-    table.appendChild(tb);
-      // 加入總計（小時與天小時）
-      const totalHours = rows.reduce((s, it) => s + Number(it.hours || 0), 0);
-      const totalDiv = document.createElement('div');
-      totalDiv.className = 'debug-total';
-      totalDiv.textContent = `總計: ${totalHours} 小時 ／ ${formatDaysHours(totalHours)}`;
-      list.appendChild(table);
-      list.appendChild(totalDiv);
-    return list;
-  };
-
-  // 附加前一年與今年的細項（以目前日曆年的已休為基準）
-  const usedYearPrev = (new Date().getFullYear() - 1);
-  const usedYearCurr = new Date().getFullYear();
-  const prevList = makeFormsList(usedYearPrev);
-  const currList = makeFormsList(usedYearCurr);
-  excelResult.appendChild(prevList);
-  excelResult.appendChild(currList);
+  
 };
 
 const getEntitlementDays = (year, month) => {
@@ -411,24 +452,7 @@ const getEntitlementDays = (year, month) => {
   return entry ? entry.days : null;
 };
 
-const getUsedFormsByYear = (year) => {
-  if (!Array.isArray(allItems) || !year) return [];
-  const result = [];
-  allItems.forEach((item) => {
-    const kv = item?.detail?.kv || {};
-    const type = kv['假别'] || '';
-    // 只列出已核准的年假/特休申請
-    if (kv['表單目前狀態'] !== '同意結束(待歸檔)') return;
-    if (!isAnnualLeaveType(type)) return;
-    const itemYear = extractYear(kv['起始日期'] || kv['申請時間']);
-    if (!itemYear) return;
-    if (Number(itemYear) !== Number(year)) return;
-    const hours = Number.parseFloat(kv['请假时数']);
-    if (!Number.isFinite(hours)) return;
-    result.push({ id: item.id, type, start: kv['起始日期'] || kv['申請時間'], hours });
-  });
-  return result;
-};
+
 
 const getAnnualLeaveHoursByYear = (year) => {
   const hours = annualLeaveUsageByYear.get(year);
@@ -586,10 +610,10 @@ const updateEntitlementResult = () => {
     currentRemainingHours,
     totalRemainingHours,
     prevYear,
-    currentYear: year
-    ,
+    currentYear: year,
     prevUsedYear: usedYearPrev,
-    currentUsedYear: usedYearCurr
+    currentUsedYear: usedYearCurr,
+    includePrev: year !== nowYear
   });
 };
 
