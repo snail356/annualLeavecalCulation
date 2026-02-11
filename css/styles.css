@@ -130,12 +130,12 @@ main {
   color: var(--ink);
   font-size: 14px;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .upload-label:hover {
-  transform: translateY(-1px);
   box-shadow: 0 6px 14px rgba(38, 26, 18, 0.12);
+  background: #fff0e8;
 }
 
 .upload-status {
@@ -230,6 +230,126 @@ tbody tr:hover {
 
 .error {
   color: #b33b2e;
+}
+
+.entitlement {
+  padding: 20px 18px 24px;
+}
+
+.entitlement-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.field label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.field input[type="date"] {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fffaf7;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.result-box {
+  background: #fffaf7;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.result-box.is-error {
+  color: #b33b2e;
+  background: #fff1ef;
+  border-color: #f0c1bb;
+}
+
+.entitlement-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.entitlement-table th,
+.entitlement-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.entitlement-table th {
+  width: 140px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.result-box.is-error .entitlement-table td,
+.result-box.is-error .entitlement-table th {
+  color: #b33b2e;
+}
+
+.entitlement-summary {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin-bottom: 12px;
+}
+
+.entitlement-table thead {
+  background: #f6ede6;
+}
+
+.entitlement-table th,
+.entitlement-table td {
+  border-bottom: 1px solid var(--border);
+}
+
+.entitlement-table td:nth-child(2),
+.entitlement-table td:nth-child(3),
+.entitlement-table th:nth-child(2),
+.entitlement-table th:nth-child(3) {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.entitlement-total {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 0;
+}
+
+.entitlement-total td {
+  padding: 10px 12px;
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+  text-align: right;
+}
+
+.entitlement-total td:first-child {
+  text-align: left;
+  color: var(--ink);
 }
 
 @media (max-width: 900px) {

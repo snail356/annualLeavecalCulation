@@ -34,6 +34,16 @@
         >
           年度請假時數計算
         </button>
+         <button
+           class="tab-button"
+           type="button"
+           role="tab"
+           aria-selected="false"
+           aria-controls="tab-entitlement"
+           data-tab="entitlement"
+         >
+           特休應得查詢
+         </button>
       </div>
       <div class="filter-bar">
         <span id="upload-status" class="upload-status" hidden></span>
@@ -61,21 +71,68 @@
               <tr>
                 <th>年度</th>
                 <th>總請假時數</th>
-                <th>天數</th>
-                <th>病假(時數)</th>
-                <th>喪假(時數)</th>
-                <th>疫苗假(時數)</th>
-                <th>婚假(時數)</th>
+                <th>病假</th>
+                <th>喪假</th>
+                <th>疫苗假</th>
+                <th>公假</th>
+                <th>婚假</th>
                 <th>年假時數</th>
-                <th>年假天數</th>
               </tr>
             </thead>
             <tbody id="annual-body"></tbody>
           </table>
         </div>
       </section>
+       <section class="card tab-panel" id="tab-entitlement" role="tabpanel" hidden>
+         <div class="entitlement">
+           <div class="entitlement-row">
+             <div class="field">
+               <label for="hire-date">到職日</label>
+               <input id="hire-date" type="date" />
+             </div>
+             <div class="field">
+               <span id="excel-status" class="upload-status" hidden></span>
+               <label class="upload-label" for="excel-upload">上傳 Excel</label>
+               <input
+                 id="excel-upload"
+                 class="upload-input"
+                 type="file"
+                 accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+               />
+             </div>
+           </div>
+          <div id="excel-result" class="result-box">
+            <div class="entitlement-summary">
+              <table class="entitlement-table" aria-label="前一年特休彙整">
+                <thead>
+                  <tr>
+                    <th>前一年項目</th>
+                    <th>天數</th>
+                    <th>小時</th>
+                  </tr>
+                </thead>
+                <tbody id="entitlement-prev-body"></tbody>
+              </table>
+              <table class="entitlement-table" aria-label="今年特休彙整">
+                <thead>
+                  <tr>
+                    <th>今年項目</th>
+                    <th>天數</th>
+                    <th>小時</th>
+                  </tr>
+                </thead>
+                <tbody id="entitlement-current-body"></tbody>
+              </table>
+            </div>
+            <table class="entitlement-total" aria-label="總剩餘特休">
+              <tbody id="entitlement-total-body"></tbody>
+            </table>
+          </div>
+         </div>
+       </section>
     </main>
 
+      <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="./js/scripts.js"></script>
   </body>
 </html>

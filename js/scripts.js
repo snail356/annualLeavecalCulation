@@ -1,10 +1,7 @@
 const columns = [
   { key: "表單編號", label: "表單編號", fromId: true },
   { key: "表單目前狀態", label: "表單目前狀態" },
-//   { key: "申請部門", label: "申請部門" },
   { key: "申請人", label: "申請人" },
-//   { key: "申請時間", label: "申請時間" },
-//   { key: "代理人", label: "代理人" },
   { key: "假别", label: "假别" },
   { key: "起始日期", label: "起始日期" },
   { key: "结束日期", label: "结束日期" },
@@ -17,7 +14,8 @@ const tabsEl = document.querySelector(".tabs");
 const tabButtons = Array.from(document.querySelectorAll(".tab-button"));
 const panels = {
   forms: document.getElementById("tab-forms"),
-  annual: document.getElementById("tab-annual")
+  annual: document.getElementById("tab-annual"),
+  entitlement: document.getElementById("tab-entitlement")
 };
 const tableWrap = panels.forms.querySelector(".table-wrap");
 const annualWrap = panels.annual.querySelector(".table-wrap");
@@ -29,9 +27,20 @@ const filterBar = document.querySelector(".filter-bar");
 const uploadInput = document.getElementById("json-upload");
 const uploadStatus = document.getElementById("upload-status");
 const sourceLabel = document.getElementById("source-label");
+const hireDateInput = document.getElementById("hire-date");
+const excelUpload = document.getElementById("excel-upload");
+const excelStatus = document.getElementById("excel-status");
+const excelResult = document.getElementById("excel-result");
+const entitlementSummary = document.querySelector(".entitlement-summary");
+const entitlementPrevBody = document.getElementById("entitlement-prev-body");
+const entitlementCurrentBody = document.getElementById("entitlement-current-body");
+const entitlementTotalBody = document.getElementById("entitlement-total-body");
 let allItems = [];
+let entitlementMap = new Map();
+let annualLeaveByYear = new Map();
 
 const renderHead = () => {
+  headRow.textContent = "";
   columns.forEach((col) => {
     const th = document.createElement("th");
     th.textContent = col.label;
@@ -134,9 +143,13 @@ const getFilteredItems = () => {
   return allItems.filter((item) => getItemYear(item) === selected);
 };
 
-const formatHours = (value) => {
-  if (!Number.isFinite(value)) return "";
-  return value % 1 === 0 ? String(value) : value.toFixed(2);
+const formatDaysHours = (value) => {
+  if (!Number.isFinite(Number(value))) return "";
+  const total = Number(value) || 0;
+  const days = Math.floor(total / 8);
+  let hours = Math.round((total - days * 8) * 100) / 100;
+  if (Math.abs(hours - Math.round(hours)) < 1e-8) hours = Math.round(hours);
+  return `${days}天${hours}小時`;
 };
 
 const renderAnnual = (items) => {
@@ -156,6 +169,7 @@ const renderAnnual = (items) => {
         病假: 0,
         喪假: 0,
         疫苗假: 0,
+        公假: 0,
         婚假: 0,
         年假: 0
       }
@@ -168,39 +182,42 @@ const renderAnnual = (items) => {
   });
 
   const years = Array.from(totals.keys()).sort((a, b) => Number(a) - Number(b));
+  annualLeaveByYear = new Map(
+    years.map((year) => [
+      Number(year),
+      totals.get(year)?.typeHours?.年假 || 0
+    ])
+  );
   const fragment = document.createDocumentFragment();
   years.forEach((year) => {
     const entry = totals.get(year);
     const tr = document.createElement("tr");
     const yearCell = document.createElement("td");
     const hoursCell = document.createElement("td");
-    const daysCell = document.createElement("td");
-    const hoursValue = entry?.totalHours || 0;
     const sickCell = document.createElement("td");
     const bereavementCell = document.createElement("td");
     const vaccineCell = document.createElement("td");
+    const publicCell = document.createElement("td");
     const marriageCell = document.createElement("td");
     const annualHoursCell = document.createElement("td");
-    const annualDaysCell = document.createElement("td");
     const annualHours = entry?.typeHours?.年假 || 0;
     yearCell.textContent = year;
-    hoursCell.textContent = formatHours(hoursValue);
-    daysCell.textContent = formatHours(hoursValue / 8);
-    sickCell.textContent = formatHours(entry?.typeHours?.病假 || 0);
-    bereavementCell.textContent = formatHours(entry?.typeHours?.喪假 || 0);
-    vaccineCell.textContent = formatHours(entry?.typeHours?.疫苗假 || 0);
-    marriageCell.textContent = formatHours(entry?.typeHours?.婚假 || 0);
-    annualHoursCell.textContent = formatHours(annualHours);
-    annualDaysCell.textContent = formatHours(annualHours / 8);
+    const hoursValue = entry?.totalHours || 0;
+    hoursCell.textContent = formatDaysHours(hoursValue);
+    sickCell.textContent = formatDaysHours(entry?.typeHours?.病假 || 0);
+    bereavementCell.textContent = formatDaysHours(entry?.typeHours?.喪假 || 0);
+    vaccineCell.textContent = formatDaysHours(entry?.typeHours?.疫苗假 || 0);
+    publicCell.textContent = formatDaysHours(entry?.typeHours?.公假 || 0);
+    marriageCell.textContent = formatDaysHours(entry?.typeHours?.婚假 || 0);
+    annualHoursCell.textContent = formatDaysHours(annualHours);
     tr.appendChild(yearCell);
     tr.appendChild(hoursCell);
-    tr.appendChild(daysCell);
     tr.appendChild(sickCell);
     tr.appendChild(bereavementCell);
     tr.appendChild(vaccineCell);
+    tr.appendChild(publicCell);
     tr.appendChild(marriageCell);
     tr.appendChild(annualHoursCell);
-    tr.appendChild(annualDaysCell);
     fragment.appendChild(tr);
   });
   annualBody.appendChild(fragment);
@@ -215,6 +232,239 @@ const setUploadStatus = (message) => {
   }
   uploadStatus.hidden = false;
   uploadStatus.textContent = message;
+};
+
+const setExcelStatus = (message) => {
+  if (!excelStatus) return;
+  if (!message) {
+    excelStatus.hidden = true;
+    excelStatus.textContent = "";
+    return;
+  }
+  excelStatus.hidden = false;
+  excelStatus.textContent = message;
+};
+
+const clearEntitlementTables = () => {
+  if (entitlementPrevBody) entitlementPrevBody.textContent = "";
+  if (entitlementCurrentBody) entitlementCurrentBody.textContent = "";
+  if (entitlementTotalBody) entitlementTotalBody.textContent = "";
+};
+
+const splitDaysHours = (hours) => {
+  if (!Number.isFinite(hours)) return { days: "0", hours: "0" };
+  const total = Number(hours) || 0;
+  const days = Math.floor(total / 8);
+  let remain = Math.round((total - days * 8) * 100) / 100;
+  if (Math.abs(remain - Math.round(remain)) < 1e-8) remain = Math.round(remain);
+  return { days: String(days), hours: String(remain) };
+};
+
+const appendRow = (tbody, label, hoursValue, prefixIcon = "") => {
+  if (!tbody) return;
+  const tr = document.createElement("tr");
+  const tdLabel = document.createElement("td");
+  const tdDays = document.createElement("td");
+  const tdHours = document.createElement("td");
+  const parts = splitDaysHours(hoursValue);
+  tdLabel.textContent = `${prefixIcon}${label}`.trim();
+  tdDays.textContent = `${parts.days}天`;
+  tdHours.textContent = `${parts.hours}小時`;
+  tr.appendChild(tdLabel);
+  tr.appendChild(tdDays);
+  tr.appendChild(tdHours);
+  tbody.appendChild(tr);
+};
+
+const setExcelResult = (payload, isError = false) => {
+  if (!excelResult) return;
+  excelResult.hidden = false;
+  excelResult.classList.toggle("is-error", Boolean(isError));
+  clearEntitlementTables();
+  if (!payload || typeof payload !== "object") {
+    if (entitlementTotalBody) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 3;
+      td.textContent = String(payload || "");
+      tr.appendChild(td);
+      entitlementTotalBody.appendChild(tr);
+    }
+    return;
+  }
+
+  const {
+    prevEntitlementHours,
+    prevUsedHours,
+    prevRemainingHours,
+    currentEntitlementHours,
+    currentUsedHours,
+    currentRemainingHours,
+    totalRemainingHours
+  } = payload;
+
+  appendRow(entitlementPrevBody, "前一年特休（去年給的）", prevEntitlementHours);
+  appendRow(entitlementPrevBody, "前一年已休", -Math.abs(prevUsedHours));
+  appendRow(entitlementPrevBody, "前一年剩餘", prevRemainingHours, "✓ ");
+
+  appendRow(entitlementCurrentBody, "當年特休（去年給的）", currentEntitlementHours);
+  appendRow(entitlementCurrentBody, "今年已休", -Math.abs(currentUsedHours));
+  appendRow(entitlementCurrentBody, "今年剩餘", currentRemainingHours, "✓ ");
+
+  if (entitlementTotalBody) {
+    const tr = document.createElement("tr");
+    const tdLabel = document.createElement("td");
+    const tdDays = document.createElement("td");
+    const tdHours = document.createElement("td");
+    const parts = splitDaysHours(totalRemainingHours);
+    tdLabel.textContent = "總剩餘";
+    tdDays.textContent = `${parts.days}天`;
+    tdHours.textContent = `${parts.hours}小時`;
+    tr.appendChild(tdLabel);
+    tr.appendChild(tdDays);
+    tr.appendChild(tdHours);
+    entitlementTotalBody.appendChild(tr);
+  }
+};
+
+const getEntitlementDays = (year, month) => {
+  if (!year || !month) return null;
+  const entry = entitlementMap.get(year * 100 + month);
+  return entry ? entry.days : null;
+};
+
+const getAnnualLeaveHoursByYear = (year) => {
+  const hours = annualLeaveByYear.get(year);
+  if (!Number.isFinite(hours)) return 0;
+  return Math.round(hours * 100) / 100;
+};
+
+const parseYearFromHeader = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const year = Math.trunc(value);
+    return year >= 1900 && year <= 2100 ? year : null;
+  }
+  const text = String(value).trim();
+  const match = text.match(/(\d{4})/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  return year >= 1900 && year <= 2100 ? year : null;
+};
+
+const parseMonthFromCell = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const month = Math.trunc(value);
+    return month >= 1 && month <= 12 ? month : null;
+  }
+  const text = String(value).trim();
+  const match = text.match(/(\d{1,2})/);
+  if (!match) return null;
+  const month = Number(match[1]);
+  return month >= 1 && month <= 12 ? month : null;
+};
+
+const parseLeaveDays = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const cleaned = String(value).replace(/[^0-9.\-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseEntitlementRows = (rows) => {
+  const result = new Map();
+  if (!Array.isArray(rows) || rows.length < 3) {
+    return { map: result, error: "Excel 內容不足，至少需要年份列與月份資料。" };
+  }
+
+  const headerRow = Array.isArray(rows[1]) ? rows[1] : [];
+  const yearColumns = [];
+  headerRow.forEach((cell, idx) => {
+    const year = parseYearFromHeader(cell);
+    if (year) {
+      yearColumns.push({ year, idx });
+    }
+  });
+
+  if (yearColumns.length === 0) {
+    return { map: result, error: "找不到第 2 列的年份欄位。" };
+  }
+
+  for (let i = 2; i < rows.length; i += 1) {
+    const row = Array.isArray(rows[i]) ? rows[i] : [];
+    const month = parseMonthFromCell(row[0]);
+    if (!month) continue;
+    yearColumns.forEach(({ year, idx }) => {
+      const days = parseLeaveDays(row[idx]);
+      if (days === null) return;
+      const key = year * 100 + month;
+      result.set(key, {
+        days,
+        label: `${year}-${String(month).padStart(2, "0")}`
+      });
+    });
+  }
+
+  if (result.size === 0) {
+    return { map: result, error: "未解析到可用的特休資料。" };
+  }
+
+  return { map: result, error: "" };
+};
+
+const updateEntitlementResult = () => {
+  if (!excelResult) return;
+  if (!hireDateInput || !hireDateInput.value) {
+    setExcelResult("請先輸入到職日。", true);
+    return;
+  }
+  if (!entitlementMap || entitlementMap.size === 0) {
+    setExcelResult("請先上傳 Excel 檔案。", true);
+    return;
+  }
+  const dateParts = hireDateInput.value.split("-");
+  const year = Number(dateParts[0]);
+  const month = Number(dateParts[1]);
+  if (!year || !month) {
+    setExcelResult("到職日格式無法解析。", true);
+    return;
+  }
+  const label = `${year}-${String(month).padStart(2, "0")}`;
+  const currentDays = getEntitlementDays(year, month);
+  if (currentDays === null) {
+    setExcelResult(`找不到 ${label} 的特休天數。`, true);
+    return;
+  }
+  const prevYear = year - 1;
+  const prevLabel = `${prevYear}-${String(month).padStart(2, "0")}`;
+  const prevDays = getEntitlementDays(prevYear, month);
+  if (prevDays === null) {
+    setExcelResult(`找不到前一年 ${prevLabel} 的特休天數。`, true);
+    return;
+  }
+  const usedHoursThisYear = getAnnualLeaveHoursByYear(year);
+  const usedHoursPrevYear = getAnnualLeaveHoursByYear(prevYear);
+  const currentHours = Math.round(currentDays * 8 * 100) / 100;
+  const prevHours = Math.round(prevDays * 8 * 100) / 100;
+  const prevRemainingHours = Math.round((prevHours - usedHoursPrevYear) * 100) / 100;
+  const currentRemainingHours = Math.round(
+    (currentHours - usedHoursThisYear) * 100
+  ) / 100;
+  const totalRemainingHours = Math.round(
+    (prevRemainingHours + currentRemainingHours) * 100
+  ) / 100;
+
+  setExcelResult({
+    prevEntitlementHours: prevHours,
+    prevUsedHours: usedHoursPrevYear,
+    prevRemainingHours,
+    currentEntitlementHours: currentHours,
+    currentUsedHours: usedHoursThisYear,
+    currentRemainingHours,
+    totalRemainingHours
+  });
 };
 
 const applyData = (data, sourceText) => {
@@ -279,6 +529,60 @@ if (uploadInput) {
       setUploadStatus("讀取檔案失敗，請重試。");
     };
     reader.readAsText(file);
+  });
+}
+
+if (hireDateInput) {
+  hireDateInput.addEventListener("change", () => {
+    updateEntitlementResult();
+  });
+}
+
+if (excelUpload) {
+  excelUpload.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (typeof XLSX === "undefined") {
+      setExcelStatus("Excel 解析工具載入失敗。");
+      setExcelResult("請稍後重整頁面再試。", true);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = new Uint8Array(reader.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) {
+          throw new Error("找不到工作表");
+        }
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, {
+          header: 1,
+          raw: true,
+          defval: ""
+        });
+        const parsed = parseEntitlementRows(rows);
+        entitlementMap = parsed.map;
+        if (parsed.error) {
+          setExcelStatus(parsed.error);
+          setExcelResult(parsed.error, true);
+          return;
+        }
+        setExcelStatus(`已載入：${file.name}`);
+        updateEntitlementResult();
+      } catch (error) {
+        entitlementMap = new Map();
+        setExcelStatus("Excel 解析失敗，請確認檔案格式。");
+        setExcelResult("Excel 解析失敗，請確認檔案格式。", true);
+      }
+    };
+    reader.onerror = () => {
+      entitlementMap = new Map();
+      setExcelStatus("讀取 Excel 檔案失敗。");
+      setExcelResult("讀取 Excel 檔案失敗。", true);
+    };
+    reader.readAsArrayBuffer(file);
   });
 }
 
