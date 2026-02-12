@@ -131,11 +131,16 @@ export const parseEntitlementRows = (rows: any[][]) => {
   return { map: result, error: "" };
 };
 
+const assetUrl = (path: string) => {
+  const normalized = path.startsWith("/") ? path.slice(1) : path;
+  return `${import.meta.env.BASE_URL}${normalized}`;
+};
+
 export const loadDefaultExcel = async () => {
   const XLSX = (window as any).XLSX;
   if (!XLSX) return;
   try {
-    const res = await fetch("/data/annual_leave.xlsx");
+    const res = await fetch(assetUrl("data/annual_leave.xlsx"));
     if (!res.ok) return;
     const buffer = await res.arrayBuffer();
     const data = new Uint8Array(buffer);
@@ -156,7 +161,7 @@ export const loadDefaultExcel = async () => {
 
 export const loadForms = async () => {
   try {
-    const res = await fetch("/data/forms.json");
+    const res = await fetch(assetUrl("data/forms.json"));
     if (!res.ok) throw new Error("fetch forms.json failed");
     const data = await res.json();
     applyData(data, "data/forms.json");
