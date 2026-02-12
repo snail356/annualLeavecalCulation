@@ -165,7 +165,11 @@ const renderDaysHoursHTML = (value) => {
   if (dnum === 0 && hnum === 0) {
     return `<span class="muted">-</span>`;
   }
-  return `<span class="num">${days}</span><span class="unit">天</span> <span class="num">${hours}</span><span class="unit">小時</span>`;
+  // 顯示格式：`21天`（正常大小） 接著用較小綠色字顯示 `+5h`
+  // 顯示格式：`21天`（正常大小） 接著用小字顯示 `· 5h`（若為負則顯示 `· - 5h`）
+  const hoursText = hnum > 0 ? `${Math.abs(hnum)}h` : (hnum < 0 ? `- ${Math.abs(hnum)}h` : "");
+  const hoursHtml = hoursText ? `<span class="dot">·</span><span class="small-hours">${hoursText}</span>` : "";
+  return `<span class="num">${days}</span><span class="unit">天</span>${hoursHtml}`;
 };
 
 const renderAnnual = (items) => {
@@ -222,6 +226,9 @@ const renderAnnual = (items) => {
     // render cell html
     hoursCell.innerHTML = renderDaysHoursHTML(hoursValue);
     annualHoursCell.innerHTML = renderDaysHoursHTML(annualHours);
+    // 讓這些數字欄靠右
+    hoursCell.classList.add('num-col');
+    annualHoursCell.classList.add('num-col');
     const sickVal = entry?.typeHours?.病假 || 0;
     const bereaveVal = entry?.typeHours?.喪假 || 0;
     const vacVal = entry?.typeHours?.疫苗假 || 0;
@@ -232,6 +239,11 @@ const renderAnnual = (items) => {
     vaccineCell.innerHTML = renderDaysHoursHTML(vacVal);
     publicCell.innerHTML = renderDaysHoursHTML(pubVal);
     marriageCell.innerHTML = renderDaysHoursHTML(marVal);
+    sickCell.classList.add('num-col');
+    bereavementCell.classList.add('num-col');
+    vaccineCell.classList.add('num-col');
+    publicCell.classList.add('num-col');
+    marriageCell.classList.add('num-col');
     // append in order: 年度, 總請假時數, 年假時數, 病假...
     tr.appendChild(yearCell);
     tr.appendChild(hoursCell);
@@ -349,10 +361,15 @@ const appendRow = (tbody, label, hoursValue, prefixIcon = "") => {
     tdHours.classList.add('muted');
   } else {
     tdDays.innerHTML = `<span class="num">${parts.days}</span><span class="unit">天</span>`;
-    tdHours.innerHTML = `<span class="num">${parts.hours}</span><span class="unit">小時</span>`;
+    // 小時顯示為短單位 `h` 並用 dot 分隔
+    const hoursNum = Number(parts.hours) || 0;
+    tdHours.innerHTML = hoursNum === 0 ? `` : `<span class="dot">·</span><span class="small-hours">${parts.hours}h</span>`;
     tdDays.classList.remove('muted');
     tdHours.classList.remove('muted');
   }
+  // 讓數字欄右對齊
+  tdDays.classList.add('num-col');
+  tdHours.classList.add('num-col');
   tr.appendChild(tdLabel);
   tr.appendChild(tdDays);
   tr.appendChild(tdHours);
@@ -434,10 +451,13 @@ const setExcelResult = (payload, isError = false) => {
       tdHours.classList.add('muted');
     } else {
       tdDays.innerHTML = `<span class="num">${parts.days}</span><span class="unit">天</span>`;
-      tdHours.innerHTML = `<span class="num">${parts.hours}</span><span class="unit">小時</span>`;
+      const hoursNum = Number(parts.hours) || 0;
+      tdHours.innerHTML = hoursNum === 0 ? `` : `<span class="dot">·</span><span class="small-hours">${parts.hours}h</span>`;
       tdDays.classList.remove('muted');
       tdHours.classList.remove('muted');
     }
+    tdDays.classList.add('num-col');
+    tdHours.classList.add('num-col');
     tr.appendChild(tdLabel);
     tr.appendChild(tdDays);
     tr.appendChild(tdHours);

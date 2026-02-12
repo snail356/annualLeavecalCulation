@@ -234,8 +234,18 @@ tbody tr:hover {
 .annual-bold .num { font-weight: 900; color: var(--ink); }
 
 /* 數字與單位樣式：單位字體稍小 */
-.num { font-size: 1em; font-weight: 600; color: var(--ink); }
+.num { font-size: 1em; font-weight: 500; color: var(--ink); }
 .unit { font-size: 0.85em; margin-left: 4px; color: var(--muted); }
+
+/* 小時小字且與整體配色相容的綠色（用於 +5h 顯示） */
+.small-hours { font-size: 0.78em; color: #8C7A6B; margin-left: 6px; display: inline-block; vertical-align: middle; }
+.small-hours.muted { color: var(--muted); }
+
+/* 右對齊數字欄 */
+.num-col { text-align: right; }
+
+/* 中間的分隔點 (dot) */
+.dot { color: var(--muted); margin: 0 6px; font-weight: 600; }
 
 .loading,
 .error {
