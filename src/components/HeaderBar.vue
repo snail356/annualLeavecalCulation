@@ -1,9 +1,6 @@
 <template>
   <header>
     <h1>請假表單彙整</h1>
-    <p class="subtitle">
-      來源：<span id="source-label">{{ sourceLabel }}</span>
-    </p>
   </header>
 </template>
 

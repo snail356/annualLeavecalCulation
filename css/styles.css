@@ -143,6 +143,27 @@ main {
   font-size: 12px;
 }
 
+.remaining-bar {
+  padding-top: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 42px;
+  line-height: 1;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.remaining-label {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.remaining-value {
+  color: var(--ink);
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -184,6 +205,39 @@ th {
   letter-spacing: 0.03em;
 }
 
+/* 表格表頭內的篩選下拉（假别） */
+.th-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.th-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.th-select select {
+  appearance: none;
+  padding: 6px 26px 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fffaf7;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.th-select-icon {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 tbody tr:nth-child(even) {
   background: #fff9f5;
 }
@@ -211,7 +265,7 @@ tbody tr:hover {
 }
 
 .row-muted td {
-  color: #9a948f;
+  color: #b8b2ad;
 }
 
 .row-muted .status {
@@ -231,21 +285,48 @@ tbody tr:hover {
 }
 
 /* 年假欄內的數字也更顯眼 */
-.annual-bold .num { font-weight: 900; color: var(--ink); }
+.annual-bold .num {
+  font-weight: 900;
+  color: var(--ink);
+}
 
 /* 數字與單位樣式：單位字體稍小 */
-.num { font-size: 1em; font-weight: 500; color: var(--ink); }
-.unit { font-size: 0.85em; margin-left: 4px; color: var(--muted); }
+.num {
+  font-size: 1em;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.unit {
+  font-size: 0.85em;
+  margin-left: 4px;
+  color: var(--muted);
+}
 
 /* 小時小字且與整體配色相容的綠色（用於 +5h 顯示） */
-.small-hours { font-size: 0.78em; color: #8C7A6B; margin-left: 6px; display: inline-block; vertical-align: middle; }
-.small-hours.muted { color: var(--muted); }
+.small-hours {
+  font-size: 0.78em;
+  color: #8C7A6B;
+  margin-left: 6px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.small-hours.muted {
+  color: var(--muted);
+}
 
 /* 右對齊數字欄 */
-.num-col { text-align: right; }
+.num-col {
+  text-align: right;
+}
 
 /* 中間的分隔點 (dot) */
-.dot { color: var(--muted); margin: 0 6px; font-weight: 600; }
+.dot {
+  color: var(--muted);
+  margin: 0 6px;
+  font-weight: 600;
+}
 
 .loading,
 .error {
@@ -378,6 +459,7 @@ tbody tr:hover {
 }
 
 @media (max-width: 900px) {
+
   header,
   main {
     padding: 0 16px;

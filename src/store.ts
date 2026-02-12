@@ -12,6 +12,17 @@ export const sourceLabel = ref("data/forms.json");
 export const entitlementMap = ref(
   new Map<number, { days: number; label: string }>(),
 );
+
+export const hireDate = ref("");
+
+// entitlement numbers in hours (shared across UI)
+export const prevEntitlementHours = ref(0);
+export const prevUsedHours = ref(0);
+export const prevRemainingHours = ref(0);
+export const currentEntitlementHours = ref(0);
+export const currentUsedHours = ref(0);
+export const currentRemainingHours = ref(0);
+export const totalRemainingHours = ref(0);
 export const annualLeaveByYear = ref(new Map<number, number>());
 export const annualLeaveUsageByYear = ref(new Map<number, number>());
 
@@ -25,9 +36,9 @@ export const columns = [
   { key: "申請人", label: "申請人" },
   { key: "假别", label: "假别" },
   { key: "起始日期", label: "起始日期" },
-  { key: "结束日期", label: "结束日期" },
-  { key: "请假时数", label: "请假时数" },
-  { key: "请假理由", label: "请假理由" },
+  { key: "结束日期", label: "結束日期" },
+  { key: "请假时数", label: "請假時數" },
+  { key: "请假理由", label: "請假理由" },
 ];
 
 export const setUploadStatus = (msg: string) => {
@@ -93,6 +104,7 @@ export const applyData = (data: FormItem[], sourceText?: string) => {
   allItems.value = data || [];
   computeAnnualTotals(allItems.value);
   computeAnnualLeaveUsage(allItems.value);
+  recomputeEntitlement();
   if (sourceText) {
     sourceLabel.value = sourceText;
   }
@@ -136,6 +148,48 @@ const assetUrl = (path: string) => {
   return `${import.meta.env.BASE_URL}${normalized}`;
 };
 
+export const recomputeEntitlement = () => {
+  if (!hireDate.value) {
+    prevEntitlementHours.value = 0;
+    currentEntitlementHours.value = 0;
+    prevUsedHours.value = 0;
+    currentUsedHours.value = 0;
+    prevRemainingHours.value = 0;
+    currentRemainingHours.value = 0;
+    totalRemainingHours.value = 0;
+    return;
+  }
+  const parts = hireDate.value.split("-");
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  if (!y || !m) return;
+
+  // current as year y, prev as y+1 (preserved behavior)
+  const currentDays = entitlementMap.value.get(y * 100 + m)?.days || 0;
+  const prevDays = entitlementMap.value.get((y + 1) * 100 + m)?.days || 0;
+
+  currentEntitlementHours.value = Math.round(currentDays * 8 * 100) / 100;
+  prevEntitlementHours.value = Math.round(prevDays * 8 * 100) / 100;
+
+  const nowYear = new Date().getFullYear();
+  // 前一年已休：取 (今年-前年的那一年) = 去年 的年假時數
+  prevUsedHours.value = getAnnualLeaveHoursByYear(nowYear - 1) || 0;
+  // 今年已休：取今年的年假時數
+  currentUsedHours.value = getAnnualLeaveHoursByYear(nowYear) || 0;
+
+  prevRemainingHours.value =
+    Math.round((prevEntitlementHours.value - prevUsedHours.value) * 100) / 100;
+  currentRemainingHours.value =
+    Math.round((currentEntitlementHours.value - currentUsedHours.value) * 100) /
+    100;
+  totalRemainingHours.value =
+    Math.round(
+      ((prevRemainingHours.value > 0 ? prevRemainingHours.value : 0) +
+        currentRemainingHours.value) *
+        100,
+    ) / 100;
+};
+
 export const loadDefaultExcel = async () => {
   const XLSX = (window as any).XLSX;
   if (!XLSX) return;
@@ -154,6 +208,7 @@ export const loadDefaultExcel = async () => {
     const parsed = parseEntitlementRows(rows);
     entitlementMap.value = parsed.map;
     if (parsed.error) setExcelStatus(parsed.error);
+    recomputeEntitlement();
   } catch (err) {
     setExcelStatus("解析預設 Excel 失敗。");
   }
@@ -193,6 +248,14 @@ export default {
   excelStatus,
   sourceLabel,
   entitlementMap,
+  hireDate,
+  prevEntitlementHours,
+  prevUsedHours,
+  prevRemainingHours,
+  currentEntitlementHours,
+  currentUsedHours,
+  currentRemainingHours,
+  totalRemainingHours,
   annualLeaveByYear,
   annualLeaveUsageByYear,
   annualTotals,
@@ -202,6 +265,7 @@ export default {
   parseEntitlementRows,
   loadDefaultExcel,
   loadForms,
+  recomputeEntitlement,
   getEntitlementDays,
   getAnnualLeaveHoursByYear,
   setUploadStatus,

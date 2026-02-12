@@ -9,9 +9,11 @@
       <TabsBar v-model="currentTab" :visible="showTabs">
         <template #between>
           <FilterBar
-            :style="filterBarStyle"
+            :show-filters="currentTab === 'forms'"
             v-model:year="selectedYear"
+            v-model:type="selectedType"
             :years="availableYears"
+            :types="availableTypes"
             :upload-status="uploadStatus"
             @upload-json="onUploadJson"
           />
@@ -44,21 +46,24 @@ type TabName = "forms" | "annual" | "entitlement";
 
 const currentTab = ref<TabName>("forms");
 const selectedYear = ref<string>("all");
+const selectedType = ref<string>("all");
 
 const statusText = computed(() => store.statusText.value || "讀取中…");
 const isLoading = computed(() => statusText.value.includes("讀取"));
 const showTabs = computed(() => !isLoading.value);
 const showStatus = computed(() => statusText.value !== "就緒");
 
-const filterBarStyle = computed(() => {
-  if (currentTab.value === "forms") return undefined;
-  return {
-    visibility: "hidden",
-    pointerEvents: "none",
-  } as const;
-});
-
 const uploadStatus = computed(() => store.uploadStatus.value || "");
+
+const availableTypes = computed(() => {
+  const types = new Set<string>();
+  (store.allItems.value || []).forEach((item: any) => {
+    const kv = item?.detail?.kv || {};
+    const type = String(kv["假别"] ?? "").trim();
+    if (type) types.add(type);
+  });
+  return Array.from(types).sort((a, b) => a.localeCompare(b, "zh-Hant"));
+});
 
 const extractYear = (value: unknown) => {
   if (!value) return "";
@@ -78,11 +83,15 @@ const availableYears = computed(() => {
 
 const filteredItems = computed(() => {
   const items = store.allItems.value || [];
-  if (selectedYear.value === "all") return items;
   return items.filter((item: any) => {
     const kv = item?.detail?.kv || {};
     const year = extractYear(kv["起始日期"] || kv["申請時間"]);
-    return year === selectedYear.value;
+    const type = String(kv["假别"] ?? "").trim();
+    const passYear =
+      selectedYear.value === "all" ? true : year === selectedYear.value;
+    const passType =
+      selectedType.value === "all" ? true : type === selectedType.value;
+    return passYear && passType;
   });
 });
 
@@ -95,6 +104,7 @@ const onUploadJson = async (file: File) => {
     store.applyData(data, file.name);
     store.setUploadStatus(`已載入：${file.name}`);
     selectedYear.value = "all";
+    selectedType.value = "all";
   } catch {
     store.setUploadStatus("JSON 載入失敗");
   }

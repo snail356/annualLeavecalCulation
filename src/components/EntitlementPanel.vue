@@ -107,19 +107,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import store from "../store";
 
-const hireDate = ref("");
+const hireDate = store.hireDate;
 const excelStatus = computed(() => store.excelStatus.value || "");
 
-const prevEntitlementHours = ref(0);
-const prevUsedHours = ref(0);
-const prevRemainingHours = ref(0);
-const currentEntitlementHours = ref(0);
-const currentUsedHours = ref(0);
-const currentRemainingHours = ref(0);
-const totalRemainingHours = ref(0);
+const prevEntitlementHours = store.prevEntitlementHours;
+const prevUsedHours = store.prevUsedHours;
+const prevRemainingHours = store.prevRemainingHours;
+const currentEntitlementHours = store.currentEntitlementHours;
+const currentUsedHours = store.currentUsedHours;
+const currentRemainingHours = store.currentRemainingHours;
+const totalRemainingHours = store.totalRemainingHours;
 
 function splitDaysHours(hours: number | string) {
   const total = Number(hours) || 0;
@@ -166,7 +166,7 @@ function onUpload(e: Event) {
       }
       store.entitlementMap.value = parsed.map;
       store.setExcelStatus(`已載入：${file.name}`);
-      updateResult();
+      store.recomputeEntitlement();
     } catch (err) {
       store.setExcelStatus("解析 Excel 失敗");
     }
@@ -176,32 +176,7 @@ function onUpload(e: Event) {
 }
 
 function updateResult() {
-  if (!hireDate.value) return;
-  const parts = hireDate.value.split("-");
-  const y = Number(parts[0]);
-  const m = Number(parts[1]);
-  // current as year y, prev as y+1 (preserved behavior)
-  const currentDays = store.entitlementMap.value.get(y * 100 + m)?.days || 0;
-  const prevDays = store.entitlementMap.value.get((y + 1) * 100 + m)?.days || 0;
-  currentEntitlementHours.value = Math.round(currentDays * 8 * 100) / 100;
-  prevEntitlementHours.value = Math.round(prevDays * 8 * 100) / 100;
-  // used hours from annual summary
-  const nowYear = new Date().getFullYear();
-  // 前一年已休：取「年度請假時數計算」中 (今年 - 前年) 的那一年＝去年 的年假時數
-  prevUsedHours.value = store.getAnnualLeaveHoursByYear(nowYear - 1) || 0;
-  // 今年已休：取今年的年假時數
-  currentUsedHours.value = store.getAnnualLeaveHoursByYear(nowYear) || 0;
-  prevRemainingHours.value =
-    Math.round((prevEntitlementHours.value - prevUsedHours.value) * 100) / 100;
-  currentRemainingHours.value =
-    Math.round((currentEntitlementHours.value - currentUsedHours.value) * 100) /
-    100;
-  totalRemainingHours.value =
-    Math.round(
-      ((prevRemainingHours.value > 0 ? prevRemainingHours.value : 0) +
-        currentRemainingHours.value) *
-        100,
-    ) / 100;
+  store.recomputeEntitlement();
 }
 </script>
 

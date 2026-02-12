@@ -8,9 +8,24 @@
           </tr>
         </thead>
         <tbody id="table-body">
-          <tr v-for="(item, idx) in items" :key="String(item?.id ?? idx)">
+          <tr
+            v-for="(item, idx) in items"
+            :key="String(item?.id ?? idx)"
+            :class="rowClass(item)"
+          >
             <td v-for="col in columns" :key="col.key">
-              {{ getCell(item, col) }}
+              <template v-if="col.fromId && getFormUrl(item)">
+                <a
+                  :href="getFormUrl(item)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {{ getCell(item, col) }}
+                </a>
+              </template>
+              <template v-else>
+                {{ getCell(item, col) }}
+              </template>
             </td>
           </tr>
         </tbody>
@@ -34,6 +49,17 @@ const getCell = (item: any, col: Column) => {
   if (col.fromId) return String(item?.id ?? "");
   const kv = item?.detail?.kv || {};
   return String(kv[col.key] ?? "");
+};
+
+const getFormUrl = (item: any) => {
+  const url = String(item?.detail?.url ?? "").trim();
+  return url || "";
+};
+
+const rowClass = (item: any) => {
+  const kv = item?.detail?.kv || {};
+  const status = String(kv["表單目前狀態"] ?? "");
+  return { "row-muted": status !== "同意結束(待歸檔)" };
 };
 </script>
 
