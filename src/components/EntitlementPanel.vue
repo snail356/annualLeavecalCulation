@@ -186,8 +186,11 @@ function updateResult() {
   currentEntitlementHours.value = Math.round(currentDays * 8 * 100) / 100;
   prevEntitlementHours.value = Math.round(prevDays * 8 * 100) / 100;
   // used hours from annual summary
-  prevUsedHours.value = store.getAnnualLeaveHoursByYear(y + 1) || 0;
-  currentUsedHours.value = store.getAnnualLeaveHoursByYear(y) || 0;
+  const nowYear = new Date().getFullYear();
+  // 前一年已休：取「年度請假時數計算」中 (今年 - 前年) 的那一年＝去年 的年假時數
+  prevUsedHours.value = store.getAnnualLeaveHoursByYear(nowYear - 1) || 0;
+  // 今年已休：取今年的年假時數
+  currentUsedHours.value = store.getAnnualLeaveHoursByYear(nowYear) || 0;
   prevRemainingHours.value =
     Math.round((prevEntitlementHours.value - prevUsedHours.value) * 100) / 100;
   currentRemainingHours.value =
