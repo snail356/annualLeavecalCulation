@@ -2,9 +2,10 @@
   <section class="card tab-panel" id="tab-entitlement" role="tabpanel">
     <div class="entitlement">
       <div class="entitlement-row">
-        <div class="field">
+        <div class="field date-field" @click="openHireDatePicker">
           <label for="hire-date">到職日</label>
           <input
+            ref="hireDateInput"
             id="hire-date"
             type="date"
             v-model="hireDate"
@@ -107,10 +108,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import store from "../store";
 
 const hireDate = store.hireDate;
+const hireDateInput = ref<HTMLInputElement | null>(null);
 const excelStatus = computed(() => store.excelStatus.value || "");
 
 const prevEntitlementHours = store.prevEntitlementHours;
@@ -178,6 +180,24 @@ function onUpload(e: Event) {
 function updateResult() {
   store.recomputeEntitlement();
 }
+
+function openHireDatePicker() {
+  const input = hireDateInput.value;
+  if (!input) return;
+  const pickerInput = input as HTMLInputElement & { showPicker?: () => void };
+  if (typeof pickerInput.showPicker === "function") {
+    pickerInput.showPicker();
+    return;
+  }
+  input.focus();
+  input.click();
+}
 </script>
 
-<style scoped></style>
+<style scoped>
+.date-field,
+.date-field input,
+.date-field label {
+  cursor: pointer;
+}
+</style>
