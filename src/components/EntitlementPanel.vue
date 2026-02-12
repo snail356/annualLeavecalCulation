@@ -33,7 +33,6 @@
               <tr>
                 <th>前一年項目</th>
                 <th class="num-col">天數</th>
-                <th class="num-col">小時</th>
               </tr>
             </thead>
             <tbody>
@@ -43,12 +42,10 @@
                   class="num-col"
                   v-html="renderDays(prevEntitlementHours)"
                 ></td>
-                <td class="num-col">&nbsp;</td>
               </tr>
               <tr>
                 <td>前一年 已休</td>
                 <td class="num-col" v-html="renderDays(-prevUsedHours)"></td>
-                <td class="num-col">&nbsp;</td>
               </tr>
               <tr>
                 <td>前一年 剩餘</td>
@@ -56,7 +53,6 @@
                   class="num-col"
                   v-html="renderDays(prevRemainingHours)"
                 ></td>
-                <td class="num-col">&nbsp;</td>
               </tr>
             </tbody>
           </table>
@@ -65,7 +61,6 @@
               <tr>
                 <th>今年項目</th>
                 <th class="num-col">天數</th>
-                <th class="num-col">小時</th>
               </tr>
             </thead>
             <tbody>
@@ -75,12 +70,10 @@
                   class="num-col"
                   v-html="renderDays(currentEntitlementHours)"
                 ></td>
-                <td class="num-col">&nbsp;</td>
               </tr>
               <tr>
                 <td>今年 已休</td>
                 <td class="num-col" v-html="renderDays(-currentUsedHours)"></td>
-                <td class="num-col">&nbsp;</td>
               </tr>
               <tr>
                 <td>今年 剩餘</td>
@@ -88,7 +81,6 @@
                   class="num-col"
                   v-html="renderDays(currentRemainingHours)"
                 ></td>
-                <td class="num-col">&nbsp;</td>
               </tr>
             </tbody>
           </table>
@@ -98,7 +90,6 @@
             <tr>
               <td>總剩餘</td>
               <td class="num-col" v-html="renderDays(totalRemainingHours)"></td>
-              <td class="num-col">&nbsp;</td>
             </tr>
           </tbody>
         </table>
