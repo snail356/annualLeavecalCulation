@@ -5,6 +5,7 @@
         <thead>
           <tr>
             <th>年度</th>
+            <th class="num-col">特休天數</th>
             <th class="num-col">總請假時數</th>
             <th class="num-col">年假時數</th>
             <th class="num-col">病假</th>
@@ -17,6 +18,10 @@
         <tbody id="annual-body">
           <tr v-for="entry in rows" :key="entry.year">
             <td>{{ entry.year }}</td>
+            <td
+              class="num-col"
+              v-html="renderEntitlementDaysHtml(entry.year)"
+            ></td>
             <td class="num-col" v-html="renderDaysHtml(entry.totalHours)"></td>
             <td
               class="num-col"
@@ -58,6 +63,28 @@ const ready = ref(false);
 
 const rows = computed(() => store.annualTotals.value || []);
 
+const hireMonth = computed(() => {
+  const parts = String(store.hireDate.value || "").split("-");
+  const month = Number(parts[1]);
+  return month >= 1 && month <= 12 ? month : null;
+});
+
+const reversedEntitlementByYear = computed(() => {
+  const result = new Map<number, number | null>();
+  const month = hireMonth.value;
+  if (!month) return result;
+
+  const years = rows.value.map((entry) => entry.year);
+  const daysByYear = years.map((year) => store.getEntitlementDays(year, month));
+  const reversedDays = [...daysByYear].reverse();
+
+  years.forEach((year, index) => {
+    result.set(year, reversedDays[index] ?? null);
+  });
+
+  return result;
+});
+
 function splitDaysHours(hours: number | string) {
   const total = Number(hours) || 0;
   const sign = total < 0 ? "-" : "";
@@ -78,6 +105,16 @@ function renderDaysHtml(value: number) {
       ? ""
       : `<span class="dot">·</span><span class="small-hours">${h}h</span>`;
   return `<span class="num">${parts.days}</span><span class="unit">天</span>${hoursHtml}`;
+}
+
+function renderEntitlementDaysHtml(year: number) {
+  const month = hireMonth.value;
+  if (!month) return '<span class="muted">-</span>';
+  const days = reversedEntitlementByYear.value.get(year);
+  if (days === null || days === undefined)
+    return '<span class="muted">-</span>';
+  const display = Math.round(days * 100) / 100;
+  return `<span class="num">${display}</span><span class="unit">天</span>`;
 }
 
 onMounted(async () => {

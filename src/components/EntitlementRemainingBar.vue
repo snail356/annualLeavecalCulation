@@ -5,6 +5,7 @@
       class="remaining-value"
       v-html="renderDays(totalRemainingHours)"
     ></span>
+    <span v-if="!hireMonth" class="muted">請先設定到職日</span>
   </div>
 </template>
 
@@ -15,6 +16,12 @@ import store from "../store";
 const totalRemainingHours = computed(
   () => store.totalRemainingHours.value || 0,
 );
+
+const hireMonth = computed(() => {
+  const parts = String(store.hireDate.value || "").split("-");
+  const month = Number(parts[1]);
+  return month >= 1 && month <= 12 ? month : null;
+});
 
 function splitDaysHours(hours: number | string) {
   const total = Number(hours) || 0;
