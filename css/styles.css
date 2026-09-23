@@ -205,6 +205,27 @@ th {
   letter-spacing: 0.03em;
 }
 
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.th-sortable:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.th-sort-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.th-sort-icon {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1;
+}
+
 /* 表格表頭內的篩選下拉（假别） */
 .th-filter {
   display: flex;
@@ -322,12 +343,6 @@ tbody tr:hover {
 }
 
 /* 中間的分隔點 (dot) */
-.dot {
-  color: var(--muted);
-  margin: 0 6px;
-  font-weight: 600;
-}
-
 .loading,
 .error {
   padding: 18px 20px;

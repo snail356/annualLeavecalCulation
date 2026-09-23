@@ -103,7 +103,7 @@ function renderDaysHtml(value: number) {
   const hoursHtml =
     h === 0
       ? ""
-      : `<span class="dot">·</span><span class="small-hours">${h}h</span>`;
+      : `<span class="small-hours">${h}h</span>`;
   return `<span class="num">${parts.days}</span><span class="unit">天</span>${hoursHtml}`;
 }
 

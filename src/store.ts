@@ -35,7 +35,7 @@ export const columns = [
   { key: "表單目前狀態", label: "表單目前狀態" },
   { key: "申請人", label: "申請人" },
   { key: "假别", label: "假别" },
-  { key: "起始日期", label: "起始日期" },
+  { key: "起始日期", label: "起始日期", sortable: true },
   { key: "结束日期", label: "結束日期" },
   { key: "请假时数", label: "請假時數" },
   { key: "请假理由", label: "請假理由" },
