@@ -4,13 +4,23 @@
       <div class="entitlement-row">
         <div class="field date-field" @click="openHireDatePicker">
           <label for="hire-date">到職日</label>
-          <input
-            ref="hireDateInput"
-            id="hire-date"
-            type="date"
-            v-model="hireDate"
-            @change="updateResult"
-          />
+          <div class="month-input-wrap">
+            <span class="month-display" :class="{ muted: !hireDate }">
+              {{ hireDateLabel }}
+            </span>
+            <i
+              class="fa-regular fa-calendar month-icon"
+              aria-hidden="true"
+            ></i>
+            <input
+              ref="hireDateInput"
+              id="hire-date"
+              class="month-native"
+              type="month"
+              v-model="hireDate"
+              @change="updateResult"
+            />
+          </div>
         </div>
         <div class="field">
           <span id="excel-status" class="upload-status" v-if="excelStatus">{{
@@ -106,6 +116,14 @@ const hireDate = store.hireDate;
 const hireDateInput = ref<HTMLInputElement | null>(null);
 const excelStatus = computed(() => store.excelStatus.value || "");
 
+const hireDateLabel = computed(() => {
+  const value = String(hireDate.value || "");
+  if (!value) return "請選擇年月";
+  const [year, month] = value.split("-");
+  if (!year || !month) return "請選擇年月";
+  return `${year}年 ${Number(month)}月`;
+});
+
 const prevEntitlementHours = store.prevEntitlementHours;
 const prevUsedHours = store.prevUsedHours;
 const prevRemainingHours = store.prevRemainingHours;
@@ -189,6 +207,50 @@ function openHireDatePicker() {
 .date-field,
 .date-field input,
 .date-field label {
+  cursor: pointer;
+}
+
+.month-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 36px 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fffaf7;
+  box-sizing: border-box;
+}
+
+.month-display {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.month-display.muted {
+  color: var(--muted);
+}
+
+.month-icon {
+  position: absolute;
+  right: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.month-native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
   cursor: pointer;
 }
 </style>

@@ -63,7 +63,7 @@ const props = defineProps<{ items: any[] }>();
 const { items } = toRefs(props);
 
 const columns = store.columns as unknown as Column[];
-const startDateSort = ref<SortDir>(null);
+const startDateSort = ref<SortDir>("desc");
 
 const parseStartDate = (value: unknown) => {
   const text = String(value ?? "").trim();
