@@ -20,15 +20,44 @@
             v-model:type="selectedType"
             :years="availableYears"
             :types="availableTypes"
-            :upload-status="uploadStatus"
-            @upload-json="onUploadJson"
-          />
+          >
+            <template v-if="currentTab === 'forms'" #actions>
+              <span
+                v-if="uploadStatus"
+                class="upload-status"
+                :class="{ 'is-error': isUploadError }"
+                >{{ uploadStatus }}</span
+              >
+              <label class="upload-label" for="json-upload">
+                <i
+                  class="fa-solid fa-arrow-up-from-bracket"
+                  aria-hidden="true"
+                ></i>
+                上傳
+              </label>
+              <input
+                id="json-upload"
+                class="upload-input"
+                type="file"
+                accept=".json,application/json"
+                @change="onPickJson"
+              />
+            </template>
+            <template v-if="currentTab !== 'entitlement'" #end>
+              <PillSelect
+                label="每頁"
+                :model-value="String(pageSize)"
+                :options="pageSizeOptions"
+                @update:model-value="onPageSizeChange"
+              />
+            </template>
+          </FilterBar>
         </template>
         <template #forms>
-          <FormsTable :items="filteredItems" />
+          <FormsTable v-model:page-size="pageSize" :items="filteredItems" />
         </template>
         <template #annual>
-          <AnnualTable />
+          <AnnualTable v-model:page-size="pageSize" />
         </template>
         <template #entitlement>
           <EntitlementPanel />
@@ -45,6 +74,7 @@ import HeaderBar from "./components/HeaderBar.vue";
 import TabsBar from "./components/TabsBar.vue";
 import FilterBar from "./components/FilterBar.vue";
 import FormsTable from "./components/FormsTable.vue";
+import PillSelect from "./components/PillSelect.vue";
 import AnnualTable from "./components/AnnualTable.vue";
 import EntitlementPanel from "./components/EntitlementPanel.vue";
 import store, { loadDefaultExcel, loadForms } from "./store";
@@ -54,6 +84,12 @@ type TabName = "forms" | "annual" | "entitlement";
 const currentTab = ref<TabName>("forms");
 const selectedYear = ref<string>("all");
 const selectedType = ref<string>("all");
+const pageSize = ref(10);
+const pageSizeOptions = [
+  { value: "10", label: "10 筆" },
+  { value: "20", label: "20 筆" },
+  { value: "50", label: "50 筆" },
+];
 
 const statusText = computed(() => store.statusText.value || "讀取中…");
 const isLoading = computed(() => statusText.value.includes("讀取"));
@@ -67,9 +103,11 @@ const pageTitle = computed(() => {
 });
 
 const uploadStatus = computed(() => store.uploadStatus.value || "");
+const isUploadError = computed(() => /失敗|錯誤/.test(uploadStatus.value));
 
 const availableTypes = computed(() => {
   const types = new Set<string>();
+  types.add("生理假");
   (store.allItems.value || []).forEach((item: any) => {
     const kv = item?.detail?.kv || {};
     const type = String(kv["假别"] ?? "").trim();
@@ -107,6 +145,20 @@ const filteredItems = computed(() => {
     return passYear && passType;
   });
 });
+
+const onPageSizeChange = (value: string) => {
+  const next = Number(value);
+  if (!Number.isFinite(next) || next <= 0) return;
+  pageSize.value = next;
+};
+
+const onPickJson = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+  onUploadJson(file);
+  target.value = "";
+};
 
 const onUploadJson = async (file: File) => {
   try {

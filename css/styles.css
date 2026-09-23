@@ -129,8 +129,7 @@ main,
 }
 
 .tab-button:focus-visible,
-.upload-label:focus-visible,
-.select-wrap:focus-within {
+.upload-label:focus-visible {
   outline: 2px solid #1c1c1f;
   outline-offset: 2px;
 }
@@ -215,17 +214,6 @@ main,
   font-size: 13px;
 }
 
-.filter-bar select {
-  appearance: none;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  font-weight: 500;
-  color: #5f5f68;
-  padding: 0;
-  cursor: pointer;
-}
-
 .upload-input {
   position: absolute;
   opacity: 0;
@@ -269,7 +257,7 @@ main,
   border: none;
   border-radius: 28px;
   box-shadow: 0 16px 40px rgba(40, 40, 55, 0.06);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .tab-panel {

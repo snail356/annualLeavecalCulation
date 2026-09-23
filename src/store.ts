@@ -66,7 +66,7 @@ export const computeAnnualTotals = (items: FormItem[]) => {
     const type = kv["假别"] || "";
     const entry = totals.get(year) || {
       totalHours: 0,
-      typeHours: { 病假: 0, 喪假: 0, 疫苗假: 0, 公假: 0, 婚假: 0, 年假: 0 },
+      typeHours: { 病假: 0, 生理假: 0, 喪假: 0, 疫苗假: 0, 公假: 0, 婚假: 0, 年假: 0 },
     };
     if (type === "年假") entry.totalHours += hours;
     if (entry.typeHours[type] !== undefined) entry.typeHours[type] += hours;

@@ -1,22 +1,27 @@
 <template>
   <section class="card tab-panel" id="tab-annual" role="tabpanel">
-    <div class="table-wrap">
-      <table aria-label="年度請假時數統計">
-        <thead>
-          <tr>
-            <th>年度</th>
-            <th class="num-col">特休天數</th>
-            <th class="num-col">總請假時數(特休)</th>
-            <th class="num-col">年假時數</th>
-            <th class="num-col">病假</th>
-            <th class="num-col">喪假</th>
-            <th class="num-col">疫苗假</th>
-            <th class="num-col">公假</th>
-            <th class="num-col">婚假</th>
-          </tr>
-        </thead>
-        <tbody id="annual-body">
-          <tr v-for="entry in rows" :key="entry.year">
+    <DataTable
+      v-model:page-size="pageSize"
+      :rows="rows"
+      aria-label="年度請假時數統計"
+      empty-text="沒有年度資料"
+    >
+      <template #head>
+        <tr>
+          <th>年度</th>
+          <th class="num-col">特休天數</th>
+          <th class="num-col">總請假時數(特休)</th>
+          <th class="num-col">年假時數</th>
+          <th class="num-col">病假</th>
+          <th class="num-col">生理假</th>
+          <th class="num-col">喪假</th>
+          <th class="num-col">疫苗假</th>
+          <th class="num-col">公假</th>
+          <th class="num-col">婚假</th>
+        </tr>
+      </template>
+      <template #body="{ rows: pageRows }">
+        <tr v-for="entry in pageRows" :key="entry.year">
             <td>{{ entry.year }}</td>
             <td
               class="num-col"
@@ -31,6 +36,10 @@
             <td
               class="num-col"
               v-html="renderDaysHtml(entry.typeHours['病假'])"
+            ></td>
+            <td
+              class="num-col"
+              v-html="renderDaysHtml(entry.typeHours['生理假'])"
             ></td>
             <td
               class="num-col"
@@ -49,16 +58,17 @@
               v-html="renderDaysHtml(entry.typeHours['婚假'])"
             ></td>
           </tr>
-        </tbody>
-      </table>
-    </div>
+      </template>
+    </DataTable>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import store, { loadForms, loadDefaultExcel } from "../store";
+import DataTable from "./DataTable.vue";
 
+const pageSize = defineModel<number>("pageSize", { default: 10 });
 const ready = ref(false);
 
 const rows = computed(() => store.annualTotals.value || []);

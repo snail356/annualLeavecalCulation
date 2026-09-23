@@ -1,76 +1,82 @@
 <template>
   <section class="card tab-panel" id="tab-forms" role="tabpanel">
-    <div class="table-wrap">
-      <table aria-label="請假表單列表">
-        <thead>
-          <tr id="table-head">
-            <th
-              v-for="col in columns"
-              :key="col.key"
-              :class="{ 'th-sortable': col.sortable }"
-              :aria-sort="col.sortable ? ariaSort : undefined"
-              @click="col.sortable ? toggleStartDateSort() : undefined"
-            >
-              <span v-if="col.sortable" class="th-sort-label">
-                {{ col.label }}
-                <i
-                  class="fa-solid th-sort-icon"
-                  :class="sortIconClass"
-                  aria-hidden="true"
-                ></i>
-              </span>
-              <template v-else>{{ col.label }}</template>
-            </th>
-          </tr>
-        </thead>
-        <tbody id="table-body">
-          <tr
-            v-for="(item, idx) in sortedItems"
-            :key="String(item?.id ?? idx)"
-            :class="rowClass(item)"
+    <DataTable
+      v-model:page-size="pageSize"
+      :rows="sortedItems"
+      aria-label="請假表單列表"
+      empty-text="沒有符合的表單"
+    >
+      <template #head>
+        <tr id="table-head">
+          <th
+            v-for="col in columns"
+            :key="col.key"
+            :class="{ 'th-sortable': col.sortable }"
+            :aria-sort="col.sortable ? ariaSort : undefined"
+            @click="col.sortable ? toggleStartDateSort() : undefined"
           >
-            <td v-for="col in columns" :key="col.key">
-              <template v-if="col.key === '表單目前狀態'">
-                <span class="status" :class="statusTone(item)">
-                  {{ getCell(item, col) }}
-                </span>
-              </template>
-              <template v-else-if="col.key === '申請人'">
-                <span class="person">
-                  <span
-                    class="avatar"
-                    :style="{ background: avatarColor(getCell(item, col)) }"
-                    aria-hidden="true"
-                  >
-                    {{ initial(getCell(item, col)) }}
-                  </span>
-                  <span class="person-name">{{ getCell(item, col) }}</span>
-                </span>
-              </template>
-              <template v-else-if="col.fromId && getFormUrl(item)">
-                <a
-                  class="form-link"
-                  :href="getFormUrl(item)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {{ getCell(item, col) }}
-                </a>
-              </template>
-              <template v-else>
+            <span v-if="col.sortable" class="th-sort-label">
+              {{ col.label }}
+              <i
+                class="fa-solid th-sort-icon"
+                :class="sortIconClass"
+                aria-hidden="true"
+              ></i>
+            </span>
+            <template v-else>{{ col.label }}</template>
+          </th>
+        </tr>
+      </template>
+      <template #body="{ rows }">
+        <tr
+          v-for="(item, idx) in rows"
+          :key="String(item?.id ?? idx)"
+          :class="rowClass(item)"
+        >
+          <td v-for="col in columns" :key="col.key">
+            <template v-if="col.key === '表單目前狀態'">
+              <span class="status" :class="statusTone(item)">
                 {{ getCell(item, col) }}
-              </template>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              </span>
+            </template>
+            <template v-else-if="col.key === '申請人'">
+              <span class="person">
+                <span
+                  class="avatar"
+                  :style="{ background: avatarColor(getCell(item, col)) }"
+                  aria-hidden="true"
+                >
+                  {{ initial(getCell(item, col)) }}
+                </span>
+                <span class="person-name">{{ getCell(item, col) }}</span>
+              </span>
+            </template>
+            <template v-else-if="col.fromId && getFormUrl(item)">
+              <a
+                class="form-link"
+                :href="getFormUrl(item)"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ getCell(item, col) }}
+              </a>
+            </template>
+            <template v-else>
+              {{ getCell(item, col) }}
+            </template>
+          </td>
+        </tr>
+      </template>
+    </DataTable>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, toRefs } from "vue";
 import store from "../store";
+import DataTable from "./DataTable.vue";
+
+const pageSize = defineModel<number>("pageSize", { default: 10 });
 
 type Column = {
   key: string;
