@@ -6,7 +6,7 @@
           <tr>
             <th>年度</th>
             <th class="num-col">特休天數</th>
-            <th class="num-col">總請假時數</th>
+            <th class="num-col">總請假時數(特休)</th>
             <th class="num-col">年假時數</th>
             <th class="num-col">病假</th>
             <th class="num-col">喪假</th>
@@ -100,10 +100,7 @@ function renderDaysHtml(value: number) {
   const d = Number(parts.days) || 0;
   const h = Number(parts.hours) || 0;
   if (d === 0 && h === 0) return '<span class="muted">-</span>';
-  const hoursHtml =
-    h === 0
-      ? ""
-      : `<span class="small-hours">${h}h</span>`;
+  const hoursHtml = h === 0 ? "" : `<span class="small-hours">${h}h</span>`;
   return `<span class="num">${parts.days}</span><span class="unit">天</span>${hoursHtml}`;
 }
 

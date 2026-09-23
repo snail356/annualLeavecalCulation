@@ -68,7 +68,7 @@ export const computeAnnualTotals = (items: FormItem[]) => {
       totalHours: 0,
       typeHours: { 病假: 0, 喪假: 0, 疫苗假: 0, 公假: 0, 婚假: 0, 年假: 0 },
     };
-    entry.totalHours += hours;
+    if (type === "年假") entry.totalHours += hours;
     if (entry.typeHours[type] !== undefined) entry.typeHours[type] += hours;
     totals.set(year, entry);
   });

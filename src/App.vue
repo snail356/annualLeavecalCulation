@@ -1,8 +1,14 @@
 <template>
-  <div>
+  <div class="app-canvas">
+    <div class="app-shell">
     <HeaderBar />
     <main>
-      <div id="status" v-show="showStatus" :class="{ loading: isLoading }">
+      <h1 class="page-title">{{ pageTitle }}</h1>
+      <div
+        id="status"
+        v-show="showStatus"
+        :class="{ loading: isLoading, error: isError }"
+      >
         {{ statusText }}
       </div>
 
@@ -29,6 +35,7 @@
         </template>
       </TabsBar>
     </main>
+    </div>
   </div>
 </template>
 
@@ -52,6 +59,12 @@ const statusText = computed(() => store.statusText.value || "讀取中…");
 const isLoading = computed(() => statusText.value.includes("讀取"));
 const showTabs = computed(() => !isLoading.value);
 const showStatus = computed(() => statusText.value !== "就緒");
+const isError = computed(() => /失敗|錯誤/.test(statusText.value));
+const pageTitle = computed(() => {
+  if (currentTab.value === "annual") return "年度請假";
+  if (currentTab.value === "entitlement") return "特休查詢";
+  return "表單明細";
+});
 
 const uploadStatus = computed(() => store.uploadStatus.value || "");
 

@@ -1,5 +1,5 @@
 <template>
-  <div v-show="visible">
+  <div v-show="visible" class="workspace">
     <div class="tabs" role="tablist">
       <button
         class="tab-button"
@@ -9,9 +9,10 @@
         :aria-selected="activeTab === 'forms'"
         aria-controls="tab-forms"
         data-tab="forms"
+        title="表單明細"
         @click="setTab('forms')"
       >
-        表單明細
+        表單
       </button>
       <button
         class="tab-button"
@@ -21,9 +22,10 @@
         :aria-selected="activeTab === 'annual'"
         aria-controls="tab-annual"
         data-tab="annual"
+        title="年度請假時數計算"
         @click="setTab('annual')"
       >
-        年度請假時數計算
+        年度
       </button>
       <button
         class="tab-button"
@@ -33,22 +35,25 @@
         :aria-selected="activeTab === 'entitlement'"
         aria-controls="tab-entitlement"
         data-tab="entitlement"
+        title="特休應得查詢"
         @click="setTab('entitlement')"
       >
-        特休應得查詢
+        特休
       </button>
     </div>
 
     <slot name="between" />
 
-    <div v-show="activeTab === 'forms'">
-      <slot name="forms" />
-    </div>
-    <div v-show="activeTab === 'annual'">
-      <slot name="annual" />
-    </div>
-    <div v-show="activeTab === 'entitlement'">
-      <slot name="entitlement" />
+    <div class="panels">
+      <div v-show="activeTab === 'forms'">
+        <slot name="forms" />
+      </div>
+      <div v-show="activeTab === 'annual'">
+        <slot name="annual" />
+      </div>
+      <div v-show="activeTab === 'entitlement'">
+        <slot name="entitlement" />
+      </div>
     </div>
   </div>
 </template>

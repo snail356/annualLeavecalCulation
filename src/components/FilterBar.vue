@@ -3,10 +3,17 @@
     <EntitlementRemainingBar />
 
     <div class="filter-right" :class="{ 'is-hidden': !showFilters }">
-      <span id="upload-status" class="upload-status" :hidden="!uploadStatus">{{
-        uploadStatus
-      }}</span>
-      <label class="upload-label" for="json-upload">上傳 JSON</label>
+      <span
+        id="upload-status"
+        class="upload-status"
+        :class="{ 'is-error': isUploadError }"
+        :hidden="!uploadStatus"
+        >{{ uploadStatus }}</span
+      >
+      <label class="upload-label" for="json-upload">
+        <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
+        上傳
+      </label>
       <input
         id="json-upload"
         class="upload-input"
@@ -14,8 +21,8 @@
         accept=".json,application/json"
         @change="onUpload"
       />
-      <label for="year-filter">年度篩選</label>
       <div class="select-wrap">
+        <label for="year-filter">年度</label>
         <select id="year-filter" :value="year" @change="onYearChange">
           <option value="all">全部</option>
           <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
@@ -23,8 +30,8 @@
         <i class="fa-solid fa-chevron-down select-icon" aria-hidden="true"></i>
       </div>
 
-      <label for="type-filter">假別篩選</label>
       <div class="select-wrap">
+        <label for="type-filter">假別</label>
         <select id="type-filter" :value="type" @change="onTypeChange">
           <option value="all">全部</option>
           <option v-for="t in types" :key="t" :value="t">{{ t }}</option>
@@ -36,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { toRefs } from "vue";
+import { computed, toRefs } from "vue";
 import EntitlementRemainingBar from "./EntitlementRemainingBar.vue";
 
 type Props = {
@@ -52,6 +59,7 @@ const props = withDefaults(defineProps<Props>(), {
   showFilters: true,
 });
 const { year, years, type, types, uploadStatus, showFilters } = toRefs(props);
+const isUploadError = computed(() => /失敗|錯誤/.test(uploadStatus.value));
 
 const emit = defineEmits<{
   (e: "update:year", value: string): void;
@@ -96,18 +104,38 @@ const onUpload = (event: Event) => {
 }
 
 .filter-right.is-hidden {
-  visibility: hidden;
-  pointer-events: none;
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .filter-right {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
 }
 
 .select-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 32px 0 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(40, 40, 55, 0.06);
+}
+
+.select-wrap label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
 }
 
 .select-wrap select {
-  padding-right: 34px;
+  padding-right: 4px;
 }
 
 .select-icon {

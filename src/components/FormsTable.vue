@@ -13,7 +13,11 @@
             >
               <span v-if="col.sortable" class="th-sort-label">
                 {{ col.label }}
-                <span class="th-sort-icon" aria-hidden="true">{{ sortIcon }}</span>
+                <i
+                  class="fa-solid th-sort-icon"
+                  :class="sortIconClass"
+                  aria-hidden="true"
+                ></i>
               </span>
               <template v-else>{{ col.label }}</template>
             </th>
@@ -26,8 +30,26 @@
             :class="rowClass(item)"
           >
             <td v-for="col in columns" :key="col.key">
-              <template v-if="col.fromId && getFormUrl(item)">
+              <template v-if="col.key === '表單目前狀態'">
+                <span class="status" :class="statusTone(item)">
+                  {{ getCell(item, col) }}
+                </span>
+              </template>
+              <template v-else-if="col.key === '申請人'">
+                <span class="person">
+                  <span
+                    class="avatar"
+                    :style="{ background: avatarColor(getCell(item, col)) }"
+                    aria-hidden="true"
+                  >
+                    {{ initial(getCell(item, col)) }}
+                  </span>
+                  <span class="person-name">{{ getCell(item, col) }}</span>
+                </span>
+              </template>
+              <template v-else-if="col.fromId && getFormUrl(item)">
                 <a
+                  class="form-link"
                   :href="getFormUrl(item)"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -85,11 +107,31 @@ const sortedItems = computed(() => {
   });
 });
 
-const sortIcon = computed(() => {
-  if (startDateSort.value === "asc") return "▲";
-  if (startDateSort.value === "desc") return "▼";
-  return "⇅";
+const sortIconClass = computed(() => {
+  if (startDateSort.value === "asc") return "fa-chevron-up";
+  if (startDateSort.value === "desc") return "fa-chevron-down";
+  return "fa-sort";
 });
+
+const statusTone = (item: any) => {
+  const status = String(item?.detail?.kv?.["表單目前狀態"] ?? "");
+  if (status.startsWith("同意")) return "is-ok";
+  if (status.includes("駁回") || status.includes("拒絕")) return "is-alert";
+  return "is-quiet";
+};
+
+const initial = (name: string) => {
+  const text = String(name || "").trim();
+  return text ? text.slice(0, 1) : "?";
+};
+
+const avatarColor = (name: string) => {
+  const palette = ["#f0d2c4", "#d7ead8", "#d5e2f6", "#f6e4ae", "#e6d4f2", "#f7d0d0"];
+  const text = String(name || "");
+  let hash = 0;
+  for (const ch of text) hash = (hash + ch.charCodeAt(0)) % palette.length;
+  return palette[hash] || palette[0];
+};
 
 const ariaSort = computed(() => {
   if (startDateSort.value === "asc") return "ascending";

@@ -1,11 +1,10 @@
 <template>
-  <div class="remaining-bar" aria-label="固定顯示特休剩餘">
-    <span class="remaining-label">特休剩餘</span>
-    <span
-      class="remaining-value"
-      v-html="renderDays(totalRemainingHours)"
-    ></span>
-    <span v-if="!hireMonth" class="muted">請先設定到職日</span>
+  <div class="stat-group" aria-label="固定顯示特休剩餘">
+    <span class="stat-pill stat-pill-dark">特休剩餘</span>
+    <span class="stat-pill stat-pill-yellow">
+      <span class="remaining-value" v-html="renderDays(totalRemainingHours)"></span>
+    </span>
+    <span v-if="!hireMonth" class="stat-hint">請先設定到職日</span>
   </div>
 </template>
 

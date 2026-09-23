@@ -23,10 +23,17 @@
           </div>
         </div>
         <div class="field">
-          <span id="excel-status" class="upload-status" v-if="excelStatus">{{
-            excelStatus
-          }}</span>
-          <label class="upload-label" for="excel-upload">上傳 Excel</label>
+          <span
+            id="excel-status"
+            class="upload-status"
+            :class="{ 'is-error': isExcelError }"
+            v-if="excelStatus"
+            >{{ excelStatus }}</span
+          >
+          <label class="upload-label" for="excel-upload">
+            <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
+            上傳 Excel
+          </label>
           <input
             id="excel-upload"
             class="upload-input"
@@ -115,6 +122,7 @@ import store from "../store";
 const hireDate = store.hireDate;
 const hireDateInput = ref<HTMLInputElement | null>(null);
 const excelStatus = computed(() => store.excelStatus.value || "");
+const isExcelError = computed(() => /失敗|錯誤/.test(excelStatus.value));
 
 const hireDateLabel = computed(() => {
   const value = String(hireDate.value || "");
@@ -215,11 +223,12 @@ function openHireDatePicker() {
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 38px;
-  padding: 8px 36px 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #fffaf7;
+  min-height: 44px;
+  padding: 8px 40px 8px 16px;
+  border-radius: 999px;
+  border: none;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(40, 40, 55, 0.06);
   box-sizing: border-box;
 }
 
