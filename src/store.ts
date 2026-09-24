@@ -14,6 +14,72 @@ export const entitlementMap = ref(
 );
 
 export const hireDate = ref("");
+export const entitlementDaysByYear = ref<Record<number, number>>({});
+export const entitlementEditorOpen = ref(false);
+
+const PROFILE_STORAGE_KEY = "annual-leave-profile";
+
+const readStoredProfile = () => {
+  try {
+    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw) as {
+      hireDate?: unknown;
+      daysByYear?: unknown;
+    };
+    if (typeof data.hireDate === "string" && /^\d{4}-\d{2}$/.test(data.hireDate)) {
+      hireDate.value = data.hireDate;
+    }
+    if (!data.daysByYear || typeof data.daysByYear !== "object") return;
+    const next: Record<number, number> = {};
+    Object.entries(data.daysByYear as Record<string, unknown>).forEach(
+      ([yearText, daysValue]) => {
+        const year = Number(yearText);
+        const days = Number(daysValue);
+        if (year < 1900 || year > 2100) return;
+        if (!Number.isFinite(days) || days < 0) return;
+        next[year] = Math.round(days * 100) / 100;
+      },
+    );
+    entitlementDaysByYear.value = next;
+  } catch {
+    // ignore unreadable storage
+  }
+};
+
+export const persistProfile = () => {
+  try {
+    const daysByYear: Record<string, number> = {};
+    Object.entries(entitlementDaysByYear.value).forEach(([year, days]) => {
+      daysByYear[year] = days;
+    });
+    localStorage.setItem(
+      PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        hireDate: hireDate.value,
+        daysByYear,
+      }),
+    );
+  } catch {
+    // ignore quota or private-mode failures
+  }
+};
+
+export const openEntitlementEditor = () => {
+  entitlementEditorOpen.value = true;
+};
+
+export const saveEntitlementProfile = (
+  nextHireDate: string,
+  daysByYear: Record<number, number>,
+) => {
+  hireDate.value = nextHireDate;
+  entitlementDaysByYear.value = { ...daysByYear };
+  persistProfile();
+  recomputeEntitlement();
+};
+
+readStoredProfile();
 
 // entitlement numbers in hours (shared across UI)
 export const prevEntitlementHours = ref(0);
@@ -164,15 +230,14 @@ export const recomputeEntitlement = () => {
   const m = Number(parts[1]);
   if (!y || !m) return;
 
-  // current as year y, prev as y+1 (preserved behavior)
-  const currentDays = entitlementMap.value.get(y * 100 + m)?.days || 0;
-  const prevDays = entitlementMap.value.get((y + 1) * 100 + m)?.days || 0;
+  const nowYear = new Date().getFullYear();
+  const currentDays = getEntitlementDays(nowYear) || 0;
+  const prevDays = getEntitlementDays(nowYear - 1) || 0;
 
   currentEntitlementHours.value = Math.round(currentDays * 8 * 100) / 100;
   prevEntitlementHours.value = Math.round(prevDays * 8 * 100) / 100;
 
-  const nowYear = new Date().getFullYear();
-  // 前一年已休：取 (今年-前年的那一年) = 去年 的年假時數
+  // 前一年已休：取去年的年假時數
   prevUsedHours.value = getAnnualLeaveHoursByYear(nowYear - 1) || 0;
   // 今年已休：取今年的年假時數
   currentUsedHours.value = getAnnualLeaveHoursByYear(nowYear) || 0;
@@ -227,10 +292,16 @@ export const loadForms = async () => {
   }
 };
 
-export const getEntitlementDays = (year: number, month: number) => {
-  if (!year || !month) return null;
-  const entry = entitlementMap.value.get(year * 100 + month);
-  return entry ? entry.days : null;
+export const getEntitlementDays = (year: number, _month?: number) => {
+  if (!year) return null;
+  const parts = String(hireDate.value || "").split("-");
+  const hireYear = Number(parts[0]);
+  const hireMonth = Number(parts[1]);
+  if (!hireYear || hireMonth < 1 || hireMonth > 12) return null;
+  if (year < hireYear) return null;
+  const days = entitlementDaysByYear.value[year];
+  if (!Number.isFinite(days)) return null;
+  return days;
 };
 
 export const getAnnualLeaveHoursByYear = (year: number) => {
@@ -249,6 +320,11 @@ export default {
   sourceLabel,
   entitlementMap,
   hireDate,
+  entitlementDaysByYear,
+  entitlementEditorOpen,
+  openEntitlementEditor,
+  persistProfile,
+  saveEntitlementProfile,
   prevEntitlementHours,
   prevUsedHours,
   prevRemainingHours,

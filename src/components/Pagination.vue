@@ -2,7 +2,7 @@
   <nav class="pagination" aria-label="分頁">
     <p class="pagination-summary">{{ summary }}</p>
 
-    <div class="pagination-nav">
+    <div v-if="showPager" class="pagination-nav">
       <button
         type="button"
         class="page-btn"
@@ -55,8 +55,10 @@ const totalPages = computed(() =>
   Math.max(1, Math.ceil(props.total / pageSize.value) || 1)
 );
 
+const showPager = computed(() => props.total > pageSize.value);
+
 const summary = computed(() => {
-  if (props.total === 0) return "共 0 筆";
+  if (!showPager.value) return `共 ${props.total} 筆`;
   const start = (page.value - 1) * pageSize.value + 1;
   const end = Math.min(page.value * pageSize.value, props.total);
   return `第 ${start}–${end} 筆，共 ${props.total} 筆`;

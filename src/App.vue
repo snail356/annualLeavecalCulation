@@ -21,6 +21,16 @@
             :years="availableYears"
             :types="availableTypes"
           >
+            <template v-if="currentTab === 'annual'" #actions>
+              <button
+                type="button"
+                class="upload-label"
+                @click="openEntitlementEditor"
+              >
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                年度特休
+              </button>
+            </template>
             <template v-if="currentTab === 'forms'" #actions>
               <span
                 v-if="uploadStatus"
@@ -64,6 +74,7 @@
         </template>
       </TabsBar>
     </main>
+    <EntitlementEditorDialog />
     </div>
   </div>
 </template>
@@ -77,7 +88,8 @@ import FormsTable from "./components/FormsTable.vue";
 import PillSelect from "./components/PillSelect.vue";
 import AnnualTable from "./components/AnnualTable.vue";
 import EntitlementPanel from "./components/EntitlementPanel.vue";
-import store, { loadDefaultExcel, loadForms } from "./store";
+import EntitlementEditorDialog from "./components/EntitlementEditorDialog.vue";
+import store, { loadForms, openEntitlementEditor } from "./store";
 
 type TabName = "forms" | "annual" | "entitlement";
 
@@ -177,7 +189,6 @@ const onUploadJson = async (file: File) => {
 
 onMounted(async () => {
   await loadForms();
-  await loadDefaultExcel();
 });
 </script>
 

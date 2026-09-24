@@ -8,10 +8,7 @@
             <span class="month-display" :class="{ muted: !hireDate }">
               {{ hireDateLabel }}
             </span>
-            <i
-              class="fa-regular fa-calendar month-icon"
-              aria-hidden="true"
-            ></i>
+            <i class="fa-regular fa-calendar month-icon" aria-hidden="true"></i>
             <input
               ref="hireDateInput"
               id="hire-date"
@@ -23,24 +20,11 @@
           </div>
         </div>
         <div class="field">
-          <span
-            id="excel-status"
-            class="upload-status"
-            :class="{ 'is-error': isExcelError }"
-            v-if="excelStatus"
-            >{{ excelStatus }}</span
-          >
-          <label class="upload-label" for="excel-upload">
-            <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
-            上傳 Excel
-          </label>
-          <input
-            id="excel-upload"
-            class="upload-input"
-            type="file"
-            accept=".xls,.xlsx"
-            @change="onUpload"
-          />
+          <span class="field-label">年度特休</span>
+          <button type="button" class="upload-label" @click="openEditor">
+            <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            填寫天數
+          </button>
         </div>
       </div>
       <div id="excel-result" class="result-box">
@@ -54,7 +38,7 @@
             </thead>
             <tbody>
               <tr>
-                <td>前一年 特休（去年給的）</td>
+                <td>前一年 特休</td>
                 <td
                   class="num-col"
                   v-html="renderDays(prevEntitlementHours)"
@@ -82,7 +66,7 @@
             </thead>
             <tbody>
               <tr>
-                <td>今年 特休（去年給的）</td>
+                <td>今年 特休</td>
                 <td
                   class="num-col"
                   v-html="renderDays(currentEntitlementHours)"
@@ -121,8 +105,6 @@ import store from "../store";
 
 const hireDate = store.hireDate;
 const hireDateInput = ref<HTMLInputElement | null>(null);
-const excelStatus = computed(() => store.excelStatus.value || "");
-const isExcelError = computed(() => /失敗|錯誤/.test(excelStatus.value));
 
 const hireDateLabel = computed(() => {
   const value = String(hireDate.value || "");
@@ -155,47 +137,17 @@ function renderDays(hours: number) {
   const d = Number(parts.days) || 0;
   const h = Number(parts.hours) || 0;
   if (d === 0 && h === 0) return '<span class="muted">-</span>';
-  const hoursHtml =
-    h === 0
-      ? ""
-      : `<span class="small-hours">${h}h</span>`;
+  const hoursHtml = h === 0 ? "" : `<span class="small-hours">${h}h</span>`;
   return `<span class="num">${parts.days}</span><span class="unit">天</span>${hoursHtml}`;
 }
 
-function onUpload(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async () => {
-    try {
-      const data = new Uint8Array(reader.result as ArrayBuffer);
-      const XLSX = (window as any).XLSX;
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, {
-        header: 1,
-        raw: true,
-        defval: "",
-      });
-      const parsed = store.parseEntitlementRows(rows);
-      if (parsed.error) {
-        store.setExcelStatus(parsed.error);
-        return;
-      }
-      store.entitlementMap.value = parsed.map;
-      store.setExcelStatus(`已載入：${file.name}`);
-      store.recomputeEntitlement();
-    } catch (err) {
-      store.setExcelStatus("解析 Excel 失敗");
-    }
-  };
-  reader.onerror = () => store.setExcelStatus("讀取 Excel 失敗");
-  reader.readAsArrayBuffer(file);
+function updateResult() {
+  store.persistProfile();
+  store.recomputeEntitlement();
 }
 
-function updateResult() {
-  store.recomputeEntitlement();
+function openEditor() {
+  store.openEntitlementEditor();
 }
 
 function openHireDatePicker() {
@@ -212,6 +164,12 @@ function openHireDatePicker() {
 </script>
 
 <style scoped>
+.field-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .date-field,
 .date-field input,
 .date-field label {
