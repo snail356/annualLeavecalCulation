@@ -515,18 +515,6 @@ tbody tr:hover .status.is-alert {
   font-size: 13px;
 }
 
-.entitlement {
-  padding: 22px 20px 24px;
-}
-
-.entitlement-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px 24px;
-  align-items: flex-end;
-  margin-bottom: 18px;
-}
-
 .field {
   display: flex;
   flex-direction: column;
@@ -544,96 +532,6 @@ tbody tr:hover .status.is-alert {
   align-self: flex-start;
   color: var(--ink);
   font-size: 14px;
-}
-
-.result-box {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 0;
-  font-size: 14px;
-  color: var(--ink);
-  line-height: 1.6;
-  overflow-x: auto;
-}
-
-.result-box.is-error {
-  color: var(--alert);
-}
-
-.entitlement-summary {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  margin-bottom: 14px;
-}
-
-.entitlement-table,
-.entitlement-total {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  min-width: 0;
-  table-layout: fixed;
-}
-
-.entitlement-table {
-  background: rgba(255, 255, 255, 0.55);
-  border-radius: 18px;
-  overflow: hidden;
-}
-
-.entitlement-table th,
-.entitlement-table td {
-  text-align: left;
-  padding: 12px 14px;
-  border-bottom: 1px solid #f0f0f4;
-  font-size: 14px;
-  background: transparent;
-}
-
-.entitlement-table tr:last-child td {
-  border-bottom: none;
-}
-
-.entitlement-table thead th {
-  background: transparent;
-  color: #9a9aa3;
-  font-weight: 600;
-  border-bottom: 1px dashed #e1e1e8;
-}
-
-.entitlement-table th {
-  width: auto;
-  letter-spacing: 0;
-}
-
-.entitlement-table td:nth-child(2),
-.entitlement-table th:nth-child(2) {
-  text-align: right;
-  white-space: nowrap;
-}
-
-.entitlement-total {
-  border-spacing: 0;
-}
-
-.entitlement-total td {
-  padding: 14px 16px;
-  font-weight: 700;
-  border-top: none;
-  text-align: right;
-  background: var(--yellow);
-}
-
-.entitlement-total td:first-child {
-  text-align: left;
-  color: var(--ink);
-  border-radius: 16px 0 0 16px;
-}
-
-.entitlement-total td:last-child {
-  border-radius: 0 16px 16px 0;
 }
 
 @media (max-width: 900px) {

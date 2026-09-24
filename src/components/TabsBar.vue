@@ -27,19 +27,6 @@
       >
         年度
       </button>
-      <button
-        class="tab-button"
-        :class="{ 'is-active': activeTab === 'entitlement' }"
-        type="button"
-        role="tab"
-        :aria-selected="activeTab === 'entitlement'"
-        aria-controls="tab-entitlement"
-        data-tab="entitlement"
-        title="特休應得查詢"
-        @click="setTab('entitlement')"
-      >
-        特休
-      </button>
     </div>
 
     <slot name="between" />
@@ -51,9 +38,6 @@
       <div v-show="activeTab === 'annual'">
         <slot name="annual" />
       </div>
-      <div v-show="activeTab === 'entitlement'">
-        <slot name="entitlement" />
-      </div>
     </div>
   </div>
 </template>
@@ -61,7 +45,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-type TabName = "forms" | "annual" | "entitlement";
+type TabName = "forms" | "annual";
 
 const props = withDefaults(
   defineProps<{

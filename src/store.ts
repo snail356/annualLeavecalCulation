@@ -1,4 +1,4 @@
-import { ref, computed } from "vue";
+import { ref } from "vue";
 
 export type FormItem = any;
 
@@ -6,12 +6,7 @@ export const allItems = ref<FormItem[]>([]);
 export const statusText = ref("讀取中…");
 export const tabsVisible = ref(false);
 export const uploadStatus = ref("");
-export const excelStatus = ref("");
 export const sourceLabel = ref("data/forms.json");
-
-export const entitlementMap = ref(
-  new Map<number, { days: number; label: string }>(),
-);
 
 export const hireDate = ref("");
 export const entitlementDaysByYear = ref<Record<number, number>>({});
@@ -81,13 +76,6 @@ export const saveEntitlementProfile = (
 
 readStoredProfile();
 
-// entitlement numbers in hours (shared across UI)
-export const prevEntitlementHours = ref(0);
-export const prevUsedHours = ref(0);
-export const prevRemainingHours = ref(0);
-export const currentEntitlementHours = ref(0);
-export const currentUsedHours = ref(0);
-export const currentRemainingHours = ref(0);
 export const totalRemainingHours = ref(0);
 export const annualLeaveByYear = ref(new Map<number, number>());
 export const annualLeaveUsageByYear = ref(new Map<number, number>());
@@ -109,9 +97,6 @@ export const columns = [
 
 export const setUploadStatus = (msg: string) => {
   uploadStatus.value = msg || "";
-};
-export const setExcelStatus = (msg: string) => {
-  excelStatus.value = msg || "";
 };
 
 const extractYear = (value: any) => {
@@ -177,38 +162,6 @@ export const applyData = (data: FormItem[], sourceText?: string) => {
   setUploadStatus("");
 };
 
-export const parseEntitlementRows = (rows: any[][]) => {
-  const result = new Map<number, { days: number; label: string }>();
-  if (!Array.isArray(rows) || rows.length < 3) {
-    return { map: result, error: "Excel 內容不足，至少需要年份列與月份資料。" };
-  }
-  const headerRow = Array.isArray(rows[1]) ? rows[1] : [];
-  const yearColumns: Array<{ year: number; idx: number }> = [];
-  headerRow.forEach((cell, idx) => {
-    const val = parseInt(String(cell).match(/(\d{4})/)?.[1] || "0", 10);
-    if (val >= 1900 && val <= 2100) yearColumns.push({ year: val, idx });
-  });
-  if (yearColumns.length === 0)
-    return { map: result, error: "找不到第 2 列的年份欄位。" };
-  for (let i = 2; i < rows.length; i += 1) {
-    const row = Array.isArray(rows[i]) ? rows[i] : [];
-    const month = Number(String(row[0] || "").match(/(\d{1,2})/)?.[1] || 0);
-    if (!month) continue;
-    yearColumns.forEach(({ year, idx }) => {
-      const days = Number(String(row[idx] || "").replace(/[^0-9.\-]/g, ""));
-      if (!Number.isFinite(days)) return;
-      const key = year * 100 + month;
-      result.set(key, {
-        days,
-        label: `${year}-${String(month).padStart(2, "0")}`,
-      });
-    });
-  }
-  if (result.size === 0)
-    return { map: result, error: "未解析到可用的特休資料。" };
-  return { map: result, error: "" };
-};
-
 const assetUrl = (path: string) => {
   const normalized = path.startsWith("/") ? path.slice(1) : path;
   return `${import.meta.env.BASE_URL}${normalized}`;
@@ -216,12 +169,6 @@ const assetUrl = (path: string) => {
 
 export const recomputeEntitlement = () => {
   if (!hireDate.value) {
-    prevEntitlementHours.value = 0;
-    currentEntitlementHours.value = 0;
-    prevUsedHours.value = 0;
-    currentUsedHours.value = 0;
-    prevRemainingHours.value = 0;
-    currentRemainingHours.value = 0;
     totalRemainingHours.value = 0;
     return;
   }
@@ -231,52 +178,14 @@ export const recomputeEntitlement = () => {
   if (!y || !m) return;
 
   const nowYear = new Date().getFullYear();
-  const currentDays = getEntitlementDays(nowYear) || 0;
-  const prevDays = getEntitlementDays(nowYear - 1) || 0;
-
-  currentEntitlementHours.value = Math.round(currentDays * 8 * 100) / 100;
-  prevEntitlementHours.value = Math.round(prevDays * 8 * 100) / 100;
-
-  // 前一年已休：取去年的年假時數
-  prevUsedHours.value = getAnnualLeaveHoursByYear(nowYear - 1) || 0;
-  // 今年已休：取今年的年假時數
-  currentUsedHours.value = getAnnualLeaveHoursByYear(nowYear) || 0;
-
-  prevRemainingHours.value =
-    Math.round((prevEntitlementHours.value - prevUsedHours.value) * 100) / 100;
-  currentRemainingHours.value =
-    Math.round((currentEntitlementHours.value - currentUsedHours.value) * 100) /
-    100;
+  const currentHours = Math.round((getEntitlementDays(nowYear) || 0) * 8 * 100) / 100;
+  const prevHours = Math.round((getEntitlementDays(nowYear - 1) || 0) * 8 * 100) / 100;
+  const prevRemaining = prevHours - (getAnnualLeaveHoursByYear(nowYear - 1) || 0);
+  const currentRemaining = currentHours - (getAnnualLeaveHoursByYear(nowYear) || 0);
   totalRemainingHours.value =
     Math.round(
-      ((prevRemainingHours.value > 0 ? prevRemainingHours.value : 0) +
-        currentRemainingHours.value) *
-        100,
+      ((prevRemaining > 0 ? prevRemaining : 0) + currentRemaining) * 100,
     ) / 100;
-};
-
-export const loadDefaultExcel = async () => {
-  const XLSX = (window as any).XLSX;
-  if (!XLSX) return;
-  try {
-    const res = await fetch(assetUrl("data/annual_leave.xlsx"));
-    if (!res.ok) return;
-    const buffer = await res.arrayBuffer();
-    const data = new Uint8Array(buffer);
-    const workbook = XLSX.read(data, { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, {
-      header: 1,
-      raw: true,
-      defval: "",
-    });
-    const parsed = parseEntitlementRows(rows);
-    entitlementMap.value = parsed.map;
-    if (parsed.error) setExcelStatus(parsed.error);
-    recomputeEntitlement();
-  } catch (err) {
-    setExcelStatus("解析預設 Excel 失敗。");
-  }
 };
 
 export const loadForms = async () => {
@@ -316,21 +225,13 @@ export default {
   statusText,
   tabsVisible,
   uploadStatus,
-  excelStatus,
   sourceLabel,
-  entitlementMap,
   hireDate,
   entitlementDaysByYear,
   entitlementEditorOpen,
   openEntitlementEditor,
   persistProfile,
   saveEntitlementProfile,
-  prevEntitlementHours,
-  prevUsedHours,
-  prevRemainingHours,
-  currentEntitlementHours,
-  currentUsedHours,
-  currentRemainingHours,
   totalRemainingHours,
   annualLeaveByYear,
   annualLeaveUsageByYear,
@@ -338,12 +239,9 @@ export default {
   applyData,
   computeAnnualTotals,
   computeAnnualLeaveUsage,
-  parseEntitlementRows,
-  loadDefaultExcel,
   loadForms,
   recomputeEntitlement,
   getEntitlementDays,
   getAnnualLeaveHoursByYear,
   setUploadStatus,
-  setExcelStatus,
 };

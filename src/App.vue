@@ -53,7 +53,7 @@
                 @change="onPickJson"
               />
             </template>
-            <template v-if="currentTab !== 'entitlement'" #end>
+            <template #end>
               <PillSelect
                 label="每頁"
                 :model-value="String(pageSize)"
@@ -68,9 +68,6 @@
         </template>
         <template #annual>
           <AnnualTable v-model:page-size="pageSize" />
-        </template>
-        <template #entitlement>
-          <EntitlementPanel />
         </template>
       </TabsBar>
     </main>
@@ -87,11 +84,10 @@ import FilterBar from "./components/FilterBar.vue";
 import FormsTable from "./components/FormsTable.vue";
 import PillSelect from "./components/PillSelect.vue";
 import AnnualTable from "./components/AnnualTable.vue";
-import EntitlementPanel from "./components/EntitlementPanel.vue";
 import EntitlementEditorDialog from "./components/EntitlementEditorDialog.vue";
 import store, { loadForms, openEntitlementEditor } from "./store";
 
-type TabName = "forms" | "annual" | "entitlement";
+type TabName = "forms" | "annual";
 
 const currentTab = ref<TabName>("forms");
 const selectedYear = ref<string>("all");
@@ -110,7 +106,6 @@ const showStatus = computed(() => statusText.value !== "就緒");
 const isError = computed(() => /失敗|錯誤/.test(statusText.value));
 const pageTitle = computed(() => {
   if (currentTab.value === "annual") return "年度請假";
-  if (currentTab.value === "entitlement") return "特休查詢";
   return "表單明細";
 });
 
