@@ -11,6 +11,7 @@ export const sourceLabel = ref("data/forms.json");
 export const hireDate = ref("");
 export const entitlementDaysByYear = ref<Record<number, number>>({});
 export const entitlementRemainingHoursByYear = ref<Record<number, number>>({});
+export const entitlementHoursManualByYear = ref<Record<number, boolean>>({});
 export const entitlementEditorOpen = ref(false);
 
 const PROFILE_STORAGE_KEY = "annual-leave-profile";
@@ -36,12 +37,21 @@ const readStoredProfile = () => {
       hireDate?: unknown;
       daysByYear?: unknown;
       remainingHoursByYear?: unknown;
+      remainingHoursManual?: unknown;
     };
     if (typeof data.hireDate === "string" && /^\d{4}-\d{2}$/.test(data.hireDate)) {
       hireDate.value = data.hireDate;
     }
     entitlementDaysByYear.value = readYearNumbers(data.daysByYear);
     entitlementRemainingHoursByYear.value = readYearNumbers(data.remainingHoursByYear);
+    const manual: Record<number, boolean> = {};
+    if (Array.isArray(data.remainingHoursManual)) {
+      data.remainingHoursManual.forEach((yearValue) => {
+        const year = Number(yearValue);
+        if (year >= 1900 && year <= 2100) manual[year] = true;
+      });
+    }
+    entitlementHoursManualByYear.value = manual;
   } catch {
     // ignore unreadable storage
   }
@@ -63,6 +73,9 @@ export const persistProfile = () => {
         hireDate: hireDate.value,
         daysByYear,
         remainingHoursByYear,
+        remainingHoursManual: Object.keys(entitlementHoursManualByYear.value).filter(
+          (year) => entitlementHoursManualByYear.value[Number(year)],
+        ),
       }),
     );
   } catch {
@@ -78,10 +91,16 @@ export const saveEntitlementProfile = (
   nextHireDate: string,
   daysByYear: Record<number, number>,
   remainingHoursByYear: Record<number, number> = {},
+  manualYears: number[] = [],
 ) => {
   hireDate.value = nextHireDate;
   entitlementDaysByYear.value = { ...daysByYear };
   entitlementRemainingHoursByYear.value = { ...remainingHoursByYear };
+  const manual: Record<number, boolean> = {};
+  manualYears.forEach((year) => {
+    manual[year] = true;
+  });
+  entitlementHoursManualByYear.value = manual;
   persistProfile();
   recomputeEntitlement();
 };
@@ -229,18 +248,40 @@ export const getEntitlementDays = (year: number, _month?: number) => {
   return days;
 };
 
+const usedAnnualHours = (year: number) => {
+  const entry = annualTotals.value.find((row) => row.year === year);
+  return Number(entry?.typeHours?.["年假"]) || 0;
+};
+
+export const carryHoursIntoYear = (year: number) => {
+  const hireYear = hireYearOf(year);
+  if (hireYear === null || year <= hireYear) return 0;
+  let carry = 0;
+  for (let current = hireYear; current < year; current += 1) {
+    const days = entitlementDaysByYear.value[current];
+    if (!Number.isFinite(days)) {
+      carry = 0;
+      continue;
+    }
+    const base = days * 8;
+    const remaining = base + carry - usedAnnualHours(current);
+    if (remaining <= 0) carry = 0;
+    else carry = Math.round(Math.min(remaining, base) * 100) / 100;
+  }
+  return carry;
+};
+
 export const getEntitlementRemainingHours = (year: number) => {
   if (hireYearOf(year) === null) return null;
-  const hours = entitlementRemainingHoursByYear.value[year];
-  if (!Number.isFinite(hours)) return null;
-  return hours;
+  const carried = carryHoursIntoYear(year);
+  return carried > 0 ? carried : null;
 };
 
 export const remainingHoursForYear = (year: number, usedHours: number) => {
   const days = getEntitlementDays(year);
-  const extra = getEntitlementRemainingHours(year);
-  if (days === null && extra === null) return null;
-  return (days || 0) * 8 + (extra || 0) - (Number(usedHours) || 0);
+  if (days === null) return null;
+  const extra = carryHoursIntoYear(year);
+  return days * 8 + extra - (Number(usedHours) || 0);
 };
 
 export const getAnnualLeaveHoursByYear = (year: number) => {
@@ -259,6 +300,7 @@ export default {
   hireDate,
   entitlementDaysByYear,
   entitlementRemainingHoursByYear,
+  entitlementHoursManualByYear,
   entitlementEditorOpen,
   openEntitlementEditor,
   persistProfile,
@@ -273,6 +315,7 @@ export default {
   loadForms,
   recomputeEntitlement,
   getEntitlementDays,
+  carryHoursIntoYear,
   getEntitlementRemainingHours,
   remainingHoursForYear,
   getAnnualLeaveHoursByYear,

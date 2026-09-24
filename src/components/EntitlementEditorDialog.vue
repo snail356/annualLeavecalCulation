@@ -8,7 +8,10 @@
   >
     <form class="dialog-form" @submit.prevent="onSave">
       <h2 id="entitlement-dialog-title">年度特休</h2>
-      <p class="dialog-lead">填寫到職年月，以及各年度的特休天數與剩餘小時。</p>
+      <p class="dialog-lead">
+        填寫到職年月，以及各年度的特休天數與剩餘小時。剩餘小時沒填時，會帶入前一年特休扣掉年假後的小時，例如
+        2 天 5 小時會帶成 21。
+      </p>
 
       <div class="field date-field" @click="openHireDatePicker">
         <label for="dialog-hire-date">到職年月</label>
@@ -47,17 +50,20 @@
             inputmode="decimal"
             placeholder="未填"
             :aria-label="`${year} 年特休天數`"
+            @input="onDaysInput"
           />
           <span class="year-unit">天</span>
           <input
             v-model="hourInputs[year]"
             class="year-input"
+            :class="{ 'is-auto': !hourManual[year] }"
             type="number"
             min="0"
             step="0.5"
             inputmode="decimal"
             placeholder="未填"
             :aria-label="`${year} 年剩餘小時`"
+            @input="onHourInput(year)"
           />
           <span class="year-unit">小時</span>
         </div>
@@ -84,6 +90,7 @@ const hireDateInput = ref<HTMLInputElement | null>(null);
 const draftHireDate = ref("");
 const yearInputs = reactive<Record<number, string>>({});
 const hourInputs = reactive<Record<number, string>>({});
+const hourManual = reactive<Record<number, boolean>>({});
 const errorText = ref("");
 
 const years = computed(() => {
@@ -111,17 +118,17 @@ watch(years, (list) => {
   });
   Object.keys(hourInputs).forEach((key) => {
     const year = Number(key);
-    if (!keep.has(year)) delete hourInputs[year];
+    if (!keep.has(year)) {
+      delete hourInputs[year];
+      delete hourManual[year];
+    }
   });
   list.forEach((year) => {
     if (yearInputs[year] === undefined) {
       const saved = store.entitlementDaysByYear.value[year];
       yearInputs[year] = Number.isFinite(saved) ? String(saved) : "";
     }
-    if (hourInputs[year] === undefined) {
-      const saved = store.entitlementRemainingHoursByYear.value[year];
-      hourInputs[year] = Number.isFinite(saved) ? String(saved) : "";
-    }
+    if (hourInputs[year] === undefined) fillHour(year);
   });
 });
 
@@ -146,15 +153,73 @@ function resetDraft() {
   });
   Object.keys(hourInputs).forEach((key) => {
     delete hourInputs[Number(key)];
+    delete hourManual[Number(key)];
   });
   const savedDays = store.entitlementDaysByYear.value;
-  const savedHours = store.entitlementRemainingHoursByYear.value;
   years.value.forEach((year) => {
     const days = savedDays[year];
-    const hours = savedHours[year];
     yearInputs[year] = Number.isFinite(days) ? String(days) : "";
-    hourInputs[year] = Number.isFinite(hours) ? String(hours) : "";
+    fillHour(year);
   });
+}
+
+function fillHour(year: number) {
+  const saved = store.entitlementRemainingHoursByYear.value[year];
+  const manual = !!store.entitlementHoursManualByYear.value[year];
+  hourManual[year] = manual;
+  hourInputs[year] =
+    manual && Number.isFinite(saved) ? String(saved) : defaultHourText(year);
+}
+
+function refreshAutoHours() {
+  years.value.forEach((year) => {
+    if (hourManual[year]) return;
+    hourInputs[year] = defaultHourText(year);
+  });
+}
+
+function onDaysInput() {
+  refreshAutoHours();
+}
+
+function onHourInput(year: number) {
+  hourManual[year] = !sameHour(hourInputs[year], defaultHourText(year));
+}
+
+function sameHour(text: string, computedText: string) {
+  const left = String(text ?? "").trim();
+  const right = String(computedText ?? "").trim();
+  if (left === right) return true;
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+  return (
+    left !== "" &&
+    right !== "" &&
+    Number.isFinite(leftNumber) &&
+    Number.isFinite(rightNumber) &&
+    Math.abs(leftNumber - rightNumber) < 1e-8
+  );
+}
+
+function defaultHourText(year: number) {
+  const hireYear = Number(String(draftHireDate.value || "").split("-")[0]);
+  if (!hireYear || year <= hireYear) return "";
+  let carry = 0;
+  for (let current = hireYear; current < year; current += 1) {
+    const dayText = String(yearInputs[current] ?? "").trim();
+    const days = dayText === "" ? null : Number(dayText);
+    if (days === null || !Number.isFinite(days)) {
+      carry = 0;
+      continue;
+    }
+    const base = days * 8;
+    const entry = (store.annualTotals.value || []).find((row) => row.year === current);
+    const used = Number(entry?.typeHours?.["年假"]) || 0;
+    const remaining = base + carry - used;
+    if (remaining <= 0) carry = 0;
+    else carry = Math.round(Math.min(remaining, base) * 100) / 100;
+  }
+  return carry > 0 ? String(carry) : "";
 }
 
 function close() {
@@ -213,7 +278,8 @@ function onSave() {
     }
   }
   errorText.value = "";
-  store.saveEntitlementProfile(draftHireDate.value, nextDays, nextHours);
+  const manualYears = years.value.filter((year) => hourManual[year]);
+  store.saveEntitlementProfile(draftHireDate.value, nextDays, nextHours, manualYears);
   close();
 }
 </script>
@@ -354,6 +420,10 @@ function onSave() {
   color: var(--ink);
   font-size: 14px;
   font-weight: 600;
+}
+
+.year-input.is-auto {
+  color: var(--muted);
 }
 
 .year-input:focus {
