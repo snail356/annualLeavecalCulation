@@ -37,8 +37,16 @@
         v-else
         class="year-list"
         role="group"
-        aria-label="各年度特休天數與剩餘小時"
+        aria-label="各年度特休天數、剩餘小時與換薪時數"
       >
+        <div class="year-head" aria-hidden="true">
+          <span></span>
+          <span>特休天數</span>
+          <span></span>
+          <span>剩餘小時</span>
+          <span></span>
+          <span>換薪時數</span>
+        </div>
         <div v-for="year in years" :key="year" class="year-row">
           <span class="year-label">{{ year }}</span>
           <input
@@ -65,6 +73,10 @@
             :aria-label="`${year} 年剩餘小時`"
             @input="onHourInput(year)"
           />
+          <span class="year-unit">小時</span>
+          <span class="payout" :aria-label="`${year} 年換薪時數`">
+            {{ payoutHourText(year) }}
+          </span>
           <span class="year-unit">小時</span>
         </div>
       </div>
@@ -222,6 +234,21 @@ function defaultHourText(year: number) {
   return carry > 0 ? String(carry) : "";
 }
 
+function payoutHourText(year: number) {
+  const dayText = String(yearInputs[year] ?? "").trim();
+  const days = dayText === "" ? null : Number(dayText);
+  if (days === null || !Number.isFinite(days)) return "—";
+  const hourText = String(hourInputs[year] ?? "").trim();
+  const extra = hourText === "" ? 0 : Number(hourText);
+  const carry = Number.isFinite(extra) && extra > 0 ? extra : 0;
+  const entry = (store.annualTotals.value || []).find((row) => row.year === year);
+  const used = Number(entry?.typeHours?.["年假"]) || 0;
+  const base = days * 8;
+  const remaining = base + carry - used;
+  const payout = remaining > base ? remaining - base : 0;
+  return String(Math.round(payout * 100) / 100);
+}
+
 function close() {
   dialogEl.value?.close();
 }
@@ -286,7 +313,7 @@ function onSave() {
 
 <style scoped>
 .entitlement-dialog {
-  width: min(520px, calc(100vw - 32px));
+  width: min(680px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   margin: auto;
   padding: 0;
@@ -393,11 +420,31 @@ function onSave() {
   padding-right: 2px;
 }
 
+.year-head,
 .year-row {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  grid-template-columns: 52px minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(72px, auto) auto;
   align-items: center;
   gap: 10px;
+}
+
+.year-head {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.year-head span:nth-child(2),
+.year-head span:nth-child(4),
+.year-head span:nth-child(6) {
+  padding-left: 4px;
+}
+
+.payout {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
 }
 
 .year-label,
