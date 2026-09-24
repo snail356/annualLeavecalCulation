@@ -12,9 +12,12 @@
 import { computed } from "vue";
 import store from "../store";
 
-const totalRemainingHours = computed(
-  () => store.totalRemainingHours.value || 0,
-);
+const totalRemainingHours = computed(() => {
+  const nowYear = new Date().getFullYear();
+  const entry = (store.annualTotals.value || []).find((row) => row.year === nowYear);
+  const remaining = store.remainingHoursForYear(nowYear, entry?.typeHours?.["年假"] || 0);
+  return remaining === null ? null : Math.round(remaining * 100) / 100;
+});
 
 const hireMonth = computed(() => {
   const parts = String(store.hireDate.value || "").split("-");
@@ -32,11 +35,12 @@ function splitDaysHours(hours: number | string) {
   return { days: sign + String(days), hours: String(remain) };
 }
 
-function renderDays(hours: number) {
+function renderDays(hours: number | null) {
+  if (hours === null) return '<span class="muted">-</span>';
   const parts = splitDaysHours(hours);
   const d = Number(parts.days) || 0;
   const h = Number(parts.hours) || 0;
-  if (d === 0 && h === 0) return '<span class="muted">-</span>';
+  if (d === 0 && h === 0) return '<span class="num">0</span><span class="unit">天</span>';
   const hoursHtml =
     h === 0
       ? ""

@@ -95,24 +95,36 @@ function renderDaysHtml(value: number) {
   return `<span class="num">${parts.days}</span><span class="unit">天</span>${hoursHtml}`;
 }
 
+function hasEntitlement(year: number) {
+  return (
+    store.getEntitlementDays(year) !== null ||
+    store.getEntitlementRemainingHours(year) !== null
+  );
+}
+
 function renderEntitlementDaysHtml(year: number) {
   const days = store.getEntitlementDays(year);
-  if (days === null || days === undefined)
-    return '<span class="muted">-</span>';
-  const display = Math.round(days * 100) / 100;
-  return `<span class="num">${display}</span><span class="unit">天</span>`;
+  const extra = store.getEntitlementRemainingHours(year);
+  if (!hasEntitlement(year)) return '<span class="muted">-</span>';
+  const dayHtml =
+    days === null
+      ? ""
+      : `<span class="num">${Math.round(days * 100) / 100}</span><span class="unit">天</span>`;
+  const hoursHtml =
+    !extra
+      ? ""
+      : `<span class="small-hours">${Math.round(extra * 100) / 100}h</span>`;
+  return dayHtml || hoursHtml
+    ? `${dayHtml}${hoursHtml}`
+    : '<span class="num">0</span><span class="unit">天</span>';
 }
 
 function remainingHours(entry: { year: number; typeHours: Record<string, number> }) {
-  const days = store.getEntitlementDays(entry.year);
-  if (days === null || days === undefined) return 0;
-  const used = Number(entry.typeHours["年假"]) || 0;
-  return days * 8 - used;
+  return store.remainingHoursForYear(entry.year, entry.typeHours["年假"] || 0) ?? 0;
 }
 
 function renderRemainingHtml(entry: { year: number; typeHours: Record<string, number> }) {
-  const days = store.getEntitlementDays(entry.year);
-  if (days === null || days === undefined) return '<span class="muted">-</span>';
+  if (!hasEntitlement(entry.year)) return '<span class="muted">-</span>';
   const hours = remainingHours(entry);
   if (hours === 0) return '<span class="num">0</span><span class="unit">天</span>';
   return renderDaysHtml(hours);

@@ -8,9 +8,7 @@
   >
     <form class="dialog-form" @submit.prevent="onSave">
       <h2 id="entitlement-dialog-title">年度特休</h2>
-      <p class="dialog-lead">
-        填寫到職年月，以及各年度的特休天數。儲存後會留在這台瀏覽器。
-      </p>
+      <p class="dialog-lead">填寫到職年月，以及各年度的特休天數與剩餘小時。</p>
 
       <div class="field date-field" @click="openHireDatePicker">
         <label for="dialog-hire-date">到職年月</label>
@@ -29,9 +27,16 @@
         </div>
       </div>
 
-      <p v-if="!draftHireDate" class="dialog-hint">請先選擇到職年月，再填各年天數。</p>
-      <div v-else class="year-list" role="group" aria-label="各年度特休天數">
-        <label v-for="year in years" :key="year" class="year-row">
+      <p v-if="!draftHireDate" class="dialog-hint">
+        請先選擇到職年月，再填各年天數與剩餘小時。
+      </p>
+      <div
+        v-else
+        class="year-list"
+        role="group"
+        aria-label="各年度特休天數與剩餘小時"
+      >
+        <div v-for="year in years" :key="year" class="year-row">
           <span class="year-label">{{ year }}</span>
           <input
             v-model="yearInputs[year]"
@@ -44,7 +49,18 @@
             :aria-label="`${year} 年特休天數`"
           />
           <span class="year-unit">天</span>
-        </label>
+          <input
+            v-model="hourInputs[year]"
+            class="year-input"
+            type="number"
+            min="0"
+            step="0.5"
+            inputmode="decimal"
+            placeholder="未填"
+            :aria-label="`${year} 年剩餘小時`"
+          />
+          <span class="year-unit">小時</span>
+        </div>
       </div>
 
       <p v-if="errorText" class="dialog-error" role="alert">{{ errorText }}</p>
@@ -67,6 +83,7 @@ const dialogEl = ref<HTMLDialogElement | null>(null);
 const hireDateInput = ref<HTMLInputElement | null>(null);
 const draftHireDate = ref("");
 const yearInputs = reactive<Record<number, string>>({});
+const hourInputs = reactive<Record<number, string>>({});
 const errorText = ref("");
 
 const years = computed(() => {
@@ -92,10 +109,19 @@ watch(years, (list) => {
     const year = Number(key);
     if (!keep.has(year)) delete yearInputs[year];
   });
+  Object.keys(hourInputs).forEach((key) => {
+    const year = Number(key);
+    if (!keep.has(year)) delete hourInputs[year];
+  });
   list.forEach((year) => {
-    if (yearInputs[year] !== undefined) return;
-    const saved = store.entitlementDaysByYear.value[year];
-    yearInputs[year] = Number.isFinite(saved) ? String(saved) : "";
+    if (yearInputs[year] === undefined) {
+      const saved = store.entitlementDaysByYear.value[year];
+      yearInputs[year] = Number.isFinite(saved) ? String(saved) : "";
+    }
+    if (hourInputs[year] === undefined) {
+      const saved = store.entitlementRemainingHoursByYear.value[year];
+      hourInputs[year] = Number.isFinite(saved) ? String(saved) : "";
+    }
   });
 });
 
@@ -118,10 +144,16 @@ function resetDraft() {
   Object.keys(yearInputs).forEach((key) => {
     delete yearInputs[Number(key)];
   });
-  const saved = store.entitlementDaysByYear.value;
+  Object.keys(hourInputs).forEach((key) => {
+    delete hourInputs[Number(key)];
+  });
+  const savedDays = store.entitlementDaysByYear.value;
+  const savedHours = store.entitlementRemainingHoursByYear.value;
   years.value.forEach((year) => {
-    const days = saved[year];
+    const days = savedDays[year];
+    const hours = savedHours[year];
     yearInputs[year] = Number.isFinite(days) ? String(days) : "";
+    hourInputs[year] = Number.isFinite(hours) ? String(hours) : "";
   });
 }
 
@@ -158,26 +190,37 @@ function onSave() {
     errorText.value = "請選擇到職年月";
     return;
   }
-  const next: Record<number, number> = {};
+  const nextDays: Record<number, number> = {};
+  const nextHours: Record<number, number> = {};
   for (const year of years.value) {
-    const text = String(yearInputs[year] ?? "").trim();
-    if (!text) continue;
-    const days = Number(text);
-    if (!Number.isFinite(days) || days < 0) {
-      errorText.value = `${year} 年的天數不正確`;
-      return;
+    const dayText = String(yearInputs[year] ?? "").trim();
+    const hourText = String(hourInputs[year] ?? "").trim();
+    if (dayText) {
+      const days = Number(dayText);
+      if (!Number.isFinite(days) || days < 0) {
+        errorText.value = `${year} 年的天數不正確`;
+        return;
+      }
+      nextDays[year] = Math.round(days * 100) / 100;
     }
-    next[year] = Math.round(days * 100) / 100;
+    if (hourText) {
+      const hours = Number(hourText);
+      if (!Number.isFinite(hours) || hours < 0) {
+        errorText.value = `${year} 年的剩餘小時不正確`;
+        return;
+      }
+      nextHours[year] = Math.round(hours * 100) / 100;
+    }
   }
   errorText.value = "";
-  store.saveEntitlementProfile(draftHireDate.value, next);
+  store.saveEntitlementProfile(draftHireDate.value, nextDays, nextHours);
   close();
 }
 </script>
 
 <style scoped>
 .entitlement-dialog {
-  width: min(440px, calc(100vw - 32px));
+  width: min(520px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   margin: auto;
   padding: 0;
@@ -286,7 +329,7 @@ function onSave() {
 
 .year-row {
   display: grid;
-  grid-template-columns: 72px 1fr auto;
+  grid-template-columns: 52px minmax(0, 1fr) auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
 }

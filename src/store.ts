@@ -10,9 +10,23 @@ export const sourceLabel = ref("data/forms.json");
 
 export const hireDate = ref("");
 export const entitlementDaysByYear = ref<Record<number, number>>({});
+export const entitlementRemainingHoursByYear = ref<Record<number, number>>({});
 export const entitlementEditorOpen = ref(false);
 
 const PROFILE_STORAGE_KEY = "annual-leave-profile";
+
+const readYearNumbers = (raw: unknown) => {
+  const next: Record<number, number> = {};
+  if (!raw || typeof raw !== "object") return next;
+  Object.entries(raw as Record<string, unknown>).forEach(([yearText, value]) => {
+    const year = Number(yearText);
+    const amount = Number(value);
+    if (year < 1900 || year > 2100) return;
+    if (!Number.isFinite(amount) || amount < 0) return;
+    next[year] = Math.round(amount * 100) / 100;
+  });
+  return next;
+};
 
 const readStoredProfile = () => {
   try {
@@ -21,22 +35,13 @@ const readStoredProfile = () => {
     const data = JSON.parse(raw) as {
       hireDate?: unknown;
       daysByYear?: unknown;
+      remainingHoursByYear?: unknown;
     };
     if (typeof data.hireDate === "string" && /^\d{4}-\d{2}$/.test(data.hireDate)) {
       hireDate.value = data.hireDate;
     }
-    if (!data.daysByYear || typeof data.daysByYear !== "object") return;
-    const next: Record<number, number> = {};
-    Object.entries(data.daysByYear as Record<string, unknown>).forEach(
-      ([yearText, daysValue]) => {
-        const year = Number(yearText);
-        const days = Number(daysValue);
-        if (year < 1900 || year > 2100) return;
-        if (!Number.isFinite(days) || days < 0) return;
-        next[year] = Math.round(days * 100) / 100;
-      },
-    );
-    entitlementDaysByYear.value = next;
+    entitlementDaysByYear.value = readYearNumbers(data.daysByYear);
+    entitlementRemainingHoursByYear.value = readYearNumbers(data.remainingHoursByYear);
   } catch {
     // ignore unreadable storage
   }
@@ -48,11 +53,16 @@ export const persistProfile = () => {
     Object.entries(entitlementDaysByYear.value).forEach(([year, days]) => {
       daysByYear[year] = days;
     });
+    const remainingHoursByYear: Record<string, number> = {};
+    Object.entries(entitlementRemainingHoursByYear.value).forEach(([year, hours]) => {
+      remainingHoursByYear[year] = hours;
+    });
     localStorage.setItem(
       PROFILE_STORAGE_KEY,
       JSON.stringify({
         hireDate: hireDate.value,
         daysByYear,
+        remainingHoursByYear,
       }),
     );
   } catch {
@@ -67,16 +77,18 @@ export const openEntitlementEditor = () => {
 export const saveEntitlementProfile = (
   nextHireDate: string,
   daysByYear: Record<number, number>,
+  remainingHoursByYear: Record<number, number> = {},
 ) => {
   hireDate.value = nextHireDate;
   entitlementDaysByYear.value = { ...daysByYear };
+  entitlementRemainingHoursByYear.value = { ...remainingHoursByYear };
   persistProfile();
   recomputeEntitlement();
 };
 
 readStoredProfile();
 
-export const totalRemainingHours = ref(0);
+export const totalRemainingHours = ref<number | null>(null);
 export const annualLeaveByYear = ref(new Map<number, number>());
 export const annualLeaveUsageByYear = ref(new Map<number, number>());
 
@@ -169,23 +181,22 @@ const assetUrl = (path: string) => {
 
 export const recomputeEntitlement = () => {
   if (!hireDate.value) {
-    totalRemainingHours.value = 0;
+    totalRemainingHours.value = null;
     return;
   }
   const parts = hireDate.value.split("-");
   const y = Number(parts[0]);
   const m = Number(parts[1]);
-  if (!y || !m) return;
+  if (!y || !m) {
+    totalRemainingHours.value = null;
+    return;
+  }
 
   const nowYear = new Date().getFullYear();
-  const currentHours = Math.round((getEntitlementDays(nowYear) || 0) * 8 * 100) / 100;
-  const prevHours = Math.round((getEntitlementDays(nowYear - 1) || 0) * 8 * 100) / 100;
-  const prevRemaining = prevHours - (getAnnualLeaveHoursByYear(nowYear - 1) || 0);
-  const currentRemaining = currentHours - (getAnnualLeaveHoursByYear(nowYear) || 0);
+  const entry = annualTotals.value.find((row) => row.year === nowYear);
+  const remaining = remainingHoursForYear(nowYear, entry?.typeHours?.["年假"] || 0);
   totalRemainingHours.value =
-    Math.round(
-      ((prevRemaining > 0 ? prevRemaining : 0) + currentRemaining) * 100,
-    ) / 100;
+    remaining === null ? null : Math.round(remaining * 100) / 100;
 };
 
 export const loadForms = async () => {
@@ -201,16 +212,35 @@ export const loadForms = async () => {
   }
 };
 
-export const getEntitlementDays = (year: number, _month?: number) => {
+const hireYearOf = (year: number) => {
   if (!year) return null;
   const parts = String(hireDate.value || "").split("-");
   const hireYear = Number(parts[0]);
   const hireMonth = Number(parts[1]);
   if (!hireYear || hireMonth < 1 || hireMonth > 12) return null;
   if (year < hireYear) return null;
+  return hireYear;
+};
+
+export const getEntitlementDays = (year: number, _month?: number) => {
+  if (hireYearOf(year) === null) return null;
   const days = entitlementDaysByYear.value[year];
   if (!Number.isFinite(days)) return null;
   return days;
+};
+
+export const getEntitlementRemainingHours = (year: number) => {
+  if (hireYearOf(year) === null) return null;
+  const hours = entitlementRemainingHoursByYear.value[year];
+  if (!Number.isFinite(hours)) return null;
+  return hours;
+};
+
+export const remainingHoursForYear = (year: number, usedHours: number) => {
+  const days = getEntitlementDays(year);
+  const extra = getEntitlementRemainingHours(year);
+  if (days === null && extra === null) return null;
+  return (days || 0) * 8 + (extra || 0) - (Number(usedHours) || 0);
 };
 
 export const getAnnualLeaveHoursByYear = (year: number) => {
@@ -228,6 +258,7 @@ export default {
   sourceLabel,
   hireDate,
   entitlementDaysByYear,
+  entitlementRemainingHoursByYear,
   entitlementEditorOpen,
   openEntitlementEditor,
   persistProfile,
@@ -242,6 +273,8 @@ export default {
   loadForms,
   recomputeEntitlement,
   getEntitlementDays,
+  getEntitlementRemainingHours,
+  remainingHoursForYear,
   getAnnualLeaveHoursByYear,
   setUploadStatus,
 };
