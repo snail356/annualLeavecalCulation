@@ -9,9 +9,9 @@
       <template #head>
         <tr>
           <th>年度</th>
-          <th class="num-col">特休天數</th>
-          <th class="num-col">年假時數</th>
-          <th class="num-col">剩餘天數</th>
+          <th class="num-col">年度特休時數</th>
+          <th class="num-col">已使用特休時數</th>
+          <th class="num-col">剩餘時數</th>
           <th class="num-col leave-split">病假</th>
           <th class="num-col">生理假</th>
           <th class="num-col">喪假</th>
@@ -22,46 +22,46 @@
       </template>
       <template #body="{ rows: pageRows }">
         <tr v-for="entry in pageRows" :key="entry.year">
-            <td>{{ entry.year }}</td>
-            <td
-              class="num-col"
-              v-html="renderEntitlementDaysHtml(entry.year)"
-            ></td>
-            <td
-              class="num-col"
-              :class="{ 'annual-bold': entry.typeHours['年假'] !== 0 }"
-              v-html="renderDaysHtml(entry.typeHours['年假'])"
-            ></td>
-            <td
-              class="num-col"
-              :class="{ 'annual-bold': remainingHours(entry) !== 0 }"
-              v-html="renderRemainingHtml(entry)"
-            ></td>
-            <td
-              class="num-col leave-split"
-              v-html="renderDaysHtml(entry.typeHours['病假'])"
-            ></td>
-            <td
-              class="num-col"
-              v-html="renderDaysHtml(entry.typeHours['生理假'])"
-            ></td>
-            <td
-              class="num-col"
-              v-html="renderDaysHtml(entry.typeHours['喪假'])"
-            ></td>
-            <td
-              class="num-col"
-              v-html="renderDaysHtml(entry.typeHours['疫苗假'])"
-            ></td>
-            <td
-              class="num-col"
-              v-html="renderDaysHtml(entry.typeHours['公假'])"
-            ></td>
-            <td
-              class="num-col"
-              v-html="renderDaysHtml(entry.typeHours['婚假'])"
-            ></td>
-          </tr>
+          <td>{{ entry.year }}</td>
+          <td
+            class="num-col"
+            v-html="renderEntitlementDaysHtml(entry.year)"
+          ></td>
+          <td
+            class="num-col"
+            :class="{ 'annual-bold': entry.typeHours['年假'] !== 0 }"
+            v-html="renderDaysHtml(entry.typeHours['年假'])"
+          ></td>
+          <td
+            class="num-col"
+            :class="{ 'annual-bold': remainingHours(entry) !== 0 }"
+            v-html="renderRemainingHtml(entry)"
+          ></td>
+          <td
+            class="num-col leave-split"
+            v-html="renderDaysHtml(entry.typeHours['病假'])"
+          ></td>
+          <td
+            class="num-col"
+            v-html="renderDaysHtml(entry.typeHours['生理假'])"
+          ></td>
+          <td
+            class="num-col"
+            v-html="renderDaysHtml(entry.typeHours['喪假'])"
+          ></td>
+          <td
+            class="num-col"
+            v-html="renderDaysHtml(entry.typeHours['疫苗假'])"
+          ></td>
+          <td
+            class="num-col"
+            v-html="renderDaysHtml(entry.typeHours['公假'])"
+          ></td>
+          <td
+            class="num-col"
+            v-html="renderDaysHtml(entry.typeHours['婚假'])"
+          ></td>
+        </tr>
       </template>
     </DataTable>
   </section>
@@ -110,23 +110,31 @@ function renderEntitlementDaysHtml(year: number) {
     days === null
       ? ""
       : `<span class="num">${Math.round(days * 100) / 100}</span><span class="unit">天</span>`;
-  const hoursHtml =
-    !extra
-      ? ""
-      : `<span class="small-hours">${Math.round(extra * 100) / 100}h</span>`;
+  const hoursHtml = !extra
+    ? ""
+    : `<span class="small-hours">${Math.round(extra * 100) / 100}h</span>`;
   return dayHtml || hoursHtml
     ? `${dayHtml}${hoursHtml}`
     : '<span class="num">0</span><span class="unit">天</span>';
 }
 
-function remainingHours(entry: { year: number; typeHours: Record<string, number> }) {
-  return store.remainingHoursForYear(entry.year, entry.typeHours["年假"] || 0) ?? 0;
+function remainingHours(entry: {
+  year: number;
+  typeHours: Record<string, number>;
+}) {
+  return (
+    store.remainingHoursForYear(entry.year, entry.typeHours["年假"] || 0) ?? 0
+  );
 }
 
-function renderRemainingHtml(entry: { year: number; typeHours: Record<string, number> }) {
+function renderRemainingHtml(entry: {
+  year: number;
+  typeHours: Record<string, number>;
+}) {
   if (!hasEntitlement(entry.year)) return '<span class="muted">-</span>';
   const hours = remainingHours(entry);
-  if (hours === 0) return '<span class="num">0</span><span class="unit">天</span>';
+  if (hours === 0)
+    return '<span class="num">0</span><span class="unit">天</span>';
   return renderDaysHtml(hours);
 }
 
