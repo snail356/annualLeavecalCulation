@@ -61,18 +61,27 @@
             @input="onDaysInput"
           />
           <span class="year-unit">天</span>
-          <input
-            v-model="hourInputs[year]"
-            class="year-input"
-            :class="{ 'is-auto': !hourManual[year] }"
-            type="number"
-            min="0"
-            step="0.5"
-            inputmode="decimal"
-            placeholder="未填"
-            :aria-label="`${year} 年剩餘小時`"
-            @input="onHourInput(year)"
-          />
+          <div class="hour-input-wrap">
+            <input
+              v-model="hourInputs[year]"
+              class="year-input hour-input"
+              :class="{ 'is-auto': !hourManual[year] }"
+              type="text"
+              inputmode="decimal"
+              placeholder="未填"
+              :aria-label="`${year} 年剩餘小時`"
+              @input="onHourInput(year)"
+            />
+            <button
+              v-if="hourManual[year]"
+              type="button"
+              class="hour-reset-btn"
+              :aria-label="`重設 ${year} 年剩餘小時為自動計算`"
+              @click="resetHour(year)"
+            >
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
           <span class="year-unit">小時</span>
           <span class="payout" :aria-label="`${year} 年換薪時數`">
             {{ payoutHourText(year) }}
@@ -195,7 +204,19 @@ function onDaysInput() {
 }
 
 function onHourInput(year: number) {
+  const value = String(hourInputs[year] ?? "").trim();
+  // If cleared, reset to auto-calculated value
+  if (value === "") {
+    resetHour(year);
+    return;
+  }
   hourManual[year] = !sameHour(hourInputs[year], defaultHourText(year));
+}
+
+function resetHour(year: number) {
+  hourManual[year] = false;
+  hourInputs[year] = defaultHourText(year);
+  refreshAutoHours();
 }
 
 function sameHour(text: string, computedText: string) {
@@ -504,6 +525,40 @@ function onSave() {
 .year-input:focus {
   outline: 2px solid #1c1c1f;
   outline-offset: 1px;
+}
+
+.hour-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.hour-input {
+  padding-right: 32px;
+}
+
+.hour-reset-btn {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #e0e0e4;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.hour-reset-btn:hover {
+  background: #d0d0d4;
+  color: #333;
 }
 
 .dialog-error {
