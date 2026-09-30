@@ -43,7 +43,7 @@
           <span></span>
           <span>特休天數</span>
           <span></span>
-          <span>剩餘小時</span>
+          <span> 前一年度剩餘小時</span>
           <span></span>
           <span>換薪時數</span>
         </div>
@@ -213,24 +213,42 @@ function sameHour(text: string, computedText: string) {
   );
 }
 
-function defaultHourText(year: number) {
+function getCarryIntoYear(year: number): number {
   const hireYear = Number(String(draftHireDate.value || "").split("-")[0]);
-  if (!hireYear || year <= hireYear) return "";
-  let carry = 0;
-  for (let current = hireYear; current < year; current += 1) {
-    const dayText = String(yearInputs[current] ?? "").trim();
-    const days = dayText === "" ? null : Number(dayText);
-    if (days === null || !Number.isFinite(days)) {
-      carry = 0;
-      continue;
+  if (!hireYear || year <= hireYear) return 0;
+
+  // If user manually set hours for this year, use it
+  if (hourManual[year]) {
+    const manualHours = Number(String(hourInputs[year] ?? "").trim());
+    if (Number.isFinite(manualHours) && manualHours >= 0) {
+      return manualHours;
     }
-    const base = days * 8;
-    const entry = (store.annualTotals.value || []).find((row) => row.year === current);
-    const used = Number(entry?.typeHours?.["年假"]) || 0;
-    const remaining = base + carry - used;
-    if (remaining <= 0) carry = 0;
-    else carry = Math.round(Math.min(remaining, base) * 100) / 100;
   }
+
+  // Calculate based on previous year only
+  const prevYear = year - 1;
+  const dayText = String(yearInputs[prevYear] ?? "").trim();
+  const days = dayText === "" ? null : Number(dayText);
+  if (days === null || !Number.isFinite(days)) {
+    return 0;
+  }
+  const base = days * 8;
+
+  // Get carry INTO prevYear (recursive, respects manual overrides)
+  const carryIntoPrev = getCarryIntoYear(prevYear);
+
+  const entry = (store.annualTotals.value || []).find(
+    (row) => row.year === prevYear,
+  );
+  const used = Number(entry?.typeHours?.["年假"]) || 0;
+  const remaining = base + carryIntoPrev - used;
+  if (remaining <= 0) return 0;
+  // Cap at base hours
+  return Math.round(Math.min(remaining, base) * 100) / 100;
+}
+
+function defaultHourText(year: number) {
+  const carry = getCarryIntoYear(year);
   return carry > 0 ? String(carry) : "";
 }
 
@@ -241,7 +259,9 @@ function payoutHourText(year: number) {
   const hourText = String(hourInputs[year] ?? "").trim();
   const extra = hourText === "" ? 0 : Number(hourText);
   const carry = Number.isFinite(extra) && extra > 0 ? extra : 0;
-  const entry = (store.annualTotals.value || []).find((row) => row.year === year);
+  const entry = (store.annualTotals.value || []).find(
+    (row) => row.year === year,
+  );
   const used = Number(entry?.typeHours?.["年假"]) || 0;
   const base = days * 8;
   const remaining = base + carry - used;
@@ -306,7 +326,12 @@ function onSave() {
   }
   errorText.value = "";
   const manualYears = years.value.filter((year) => hourManual[year]);
-  store.saveEntitlementProfile(draftHireDate.value, nextDays, nextHours, manualYears);
+  store.saveEntitlementProfile(
+    draftHireDate.value,
+    nextDays,
+    nextHours,
+    manualYears,
+  );
   close();
 }
 </script>
@@ -423,7 +448,10 @@ function onSave() {
 .year-head,
 .year-row {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(72px, auto) auto;
+  grid-template-columns: 52px minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(
+      72px,
+      auto
+    ) auto;
   align-items: center;
   gap: 10px;
 }

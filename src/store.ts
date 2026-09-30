@@ -267,20 +267,22 @@ export const carryHoursIntoYear = (year: number) => {
     }
   }
 
-  // Auto-calculate based on previous years
-  let carry = 0;
-  for (let current = hireYear; current < year; current += 1) {
-    const days = entitlementDaysByYear.value[current];
-    if (!Number.isFinite(days)) {
-      carry = 0;
-      continue;
-    }
-    const base = days * 8;
-    const remaining = base + carry - usedAnnualHours(current);
-    if (remaining <= 0) carry = 0;
-    else carry = Math.round(Math.min(remaining, base) * 100) / 100;
+  // Calculate based on previous year only
+  const prevYear = year - 1;
+  const days = entitlementDaysByYear.value[prevYear];
+  if (!Number.isFinite(days)) {
+    return 0;
   }
-  return carry;
+  const base = days * 8;
+
+  // Get the carry INTO prevYear (recursive call, respects manual overrides)
+  const carryIntoPrev = carryHoursIntoYear(prevYear);
+
+  // prevYear's remaining = base + carryIntoPrev - used
+  const remaining = base + carryIntoPrev - usedAnnualHours(prevYear);
+  if (remaining <= 0) return 0;
+  // Cap at base hours (can't carry more than the previous year's entitlement)
+  return Math.round(Math.min(remaining, base) * 100) / 100;
 };
 
 export const getEntitlementRemainingHours = (year: number) => {
