@@ -37,15 +37,16 @@
         v-else
         class="year-list"
         role="group"
-        aria-label="各年度特休天數、剩餘小時與換薪/扣薪時數"
+        aria-label="各年度特休天數、剩餘小時、換薪/扣薪時數與備註"
       >
         <div class="year-head" aria-hidden="true">
           <span></span>
           <span>特休天數</span>
           <span></span>
-          <span> 前一年度剩餘小時</span>
+          <span>前一年度剩餘小時</span>
           <span></span>
           <span>換薪/扣薪 時數</span>
+          <span>備註</span>
         </div>
         <div v-for="year in years" :key="year" class="year-row">
           <span class="year-label">{{ year }}</span>
@@ -86,7 +87,13 @@
           <span class="payout" :aria-label="`${year} 年換薪/扣薪時數`">
             {{ payoutHourText(year) }}
           </span>
-          <span class="year-unit"></span>
+          <input
+            v-model="noteInputs[year]"
+            class="year-input note-input"
+            type="text"
+            placeholder=""
+            :aria-label="`${year} 年備註`"
+          />
         </div>
       </div>
 
@@ -112,6 +119,7 @@ const draftHireDate = ref("");
 const yearInputs = reactive<Record<number, string>>({});
 const hourInputs = reactive<Record<number, string>>({});
 const hourManual = reactive<Record<number, boolean>>({});
+const noteInputs = reactive<Record<number, string>>({});
 const errorText = ref("");
 
 const years = computed(() => {
@@ -144,12 +152,19 @@ watch(years, (list) => {
       delete hourManual[year];
     }
   });
+  Object.keys(noteInputs).forEach((key) => {
+    const year = Number(key);
+    if (!keep.has(year)) delete noteInputs[year];
+  });
   list.forEach((year) => {
     if (yearInputs[year] === undefined) {
       const saved = store.entitlementDaysByYear.value[year];
       yearInputs[year] = Number.isFinite(saved) ? String(saved) : "";
     }
     if (hourInputs[year] === undefined) fillHour(year);
+    if (noteInputs[year] === undefined) {
+      noteInputs[year] = store.entitlementNotesByYear.value[year] || "";
+    }
   });
 });
 
@@ -176,11 +191,16 @@ function resetDraft() {
     delete hourInputs[Number(key)];
     delete hourManual[Number(key)];
   });
+  Object.keys(noteInputs).forEach((key) => {
+    delete noteInputs[Number(key)];
+  });
   const savedDays = store.entitlementDaysByYear.value;
+  const savedNotes = store.entitlementNotesByYear.value;
   years.value.forEach((year) => {
     const days = savedDays[year];
     yearInputs[year] = Number.isFinite(days) ? String(days) : "";
     fillHour(year);
+    noteInputs[year] = savedNotes[year] || "";
   });
 }
 
@@ -339,9 +359,11 @@ function onSave() {
   }
   const nextDays: Record<number, number> = {};
   const nextHours: Record<number, number> = {};
+  const nextNotes: Record<number, string> = {};
   for (const year of years.value) {
     const dayText = String(yearInputs[year] ?? "").trim();
     const hourText = String(hourInputs[year] ?? "").trim();
+    const noteText = String(noteInputs[year] ?? "").trim();
     if (dayText) {
       const days = Number(dayText);
       if (!Number.isFinite(days) || days < 0) {
@@ -358,6 +380,9 @@ function onSave() {
       }
       nextHours[year] = Math.round(hours * 100) / 100;
     }
+    if (noteText) {
+      nextNotes[year] = noteText;
+    }
   }
   errorText.value = "";
   const manualYears = years.value.filter((year) => hourManual[year]);
@@ -366,6 +391,7 @@ function onSave() {
     nextDays,
     nextHours,
     manualYears,
+    nextNotes,
   );
   close();
 }
@@ -373,7 +399,7 @@ function onSave() {
 
 <style scoped>
 .entitlement-dialog {
-  width: min(680px, calc(100vw - 32px));
+  width: min(800px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   margin: auto;
   padding: 0;
@@ -486,7 +512,7 @@ function onSave() {
   grid-template-columns: 52px minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(
       100px,
       auto
-    ) 0;
+    ) minmax(80px, 1fr);
   align-items: center;
   gap: 10px;
 }
@@ -499,7 +525,8 @@ function onSave() {
 
 .year-head span:nth-child(2),
 .year-head span:nth-child(4),
-.year-head span:nth-child(6) {
+.year-head span:nth-child(6),
+.year-head span:nth-child(7) {
   padding-left: 4px;
 }
 
@@ -574,6 +601,17 @@ function onSave() {
 .hour-reset-btn:hover {
   background: #d0d0d4;
   color: #333;
+}
+
+.note-input {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 12px;
+  height: 36px;
+}
+
+.note-input::placeholder {
+  color: #bbb;
 }
 
 .dialog-error {

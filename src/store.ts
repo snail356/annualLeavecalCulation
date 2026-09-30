@@ -12,6 +12,7 @@ export const hireDate = ref("");
 export const entitlementDaysByYear = ref<Record<number, number>>({});
 export const entitlementRemainingHoursByYear = ref<Record<number, number>>({});
 export const entitlementHoursManualByYear = ref<Record<number, boolean>>({});
+export const entitlementNotesByYear = ref<Record<number, string>>({});
 export const entitlementEditorOpen = ref(false);
 
 const PROFILE_STORAGE_KEY = "annual-leave-profile";
@@ -29,6 +30,19 @@ const readYearNumbers = (raw: unknown) => {
   return next;
 };
 
+const readYearStrings = (raw: unknown) => {
+  const next: Record<number, string> = {};
+  if (!raw || typeof raw !== "object") return next;
+  Object.entries(raw as Record<string, unknown>).forEach(([yearText, value]) => {
+    const year = Number(yearText);
+    if (year < 1900 || year > 2100) return;
+    if (typeof value === "string" && value.trim()) {
+      next[year] = value.trim();
+    }
+  });
+  return next;
+};
+
 const readStoredProfile = () => {
   try {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
@@ -38,6 +52,7 @@ const readStoredProfile = () => {
       daysByYear?: unknown;
       remainingHoursByYear?: unknown;
       remainingHoursManual?: unknown;
+      notesByYear?: unknown;
     };
     if (typeof data.hireDate === "string" && /^\d{4}-\d{2}$/.test(data.hireDate)) {
       hireDate.value = data.hireDate;
@@ -52,6 +67,7 @@ const readStoredProfile = () => {
       });
     }
     entitlementHoursManualByYear.value = manual;
+    entitlementNotesByYear.value = readYearStrings(data.notesByYear);
   } catch {
     // ignore unreadable storage
   }
@@ -67,6 +83,10 @@ export const persistProfile = () => {
     Object.entries(entitlementRemainingHoursByYear.value).forEach(([year, hours]) => {
       remainingHoursByYear[year] = hours;
     });
+    const notesByYear: Record<string, string> = {};
+    Object.entries(entitlementNotesByYear.value).forEach(([year, note]) => {
+      if (note && note.trim()) notesByYear[year] = note.trim();
+    });
     localStorage.setItem(
       PROFILE_STORAGE_KEY,
       JSON.stringify({
@@ -76,6 +96,7 @@ export const persistProfile = () => {
         remainingHoursManual: Object.keys(entitlementHoursManualByYear.value).filter(
           (year) => entitlementHoursManualByYear.value[Number(year)],
         ),
+        notesByYear,
       }),
     );
   } catch {
@@ -92,6 +113,7 @@ export const saveEntitlementProfile = (
   daysByYear: Record<number, number>,
   remainingHoursByYear: Record<number, number> = {},
   manualYears: number[] = [],
+  notesByYear: Record<number, string> = {},
 ) => {
   hireDate.value = nextHireDate;
   entitlementDaysByYear.value = { ...daysByYear };
@@ -101,6 +123,7 @@ export const saveEntitlementProfile = (
     manual[year] = true;
   });
   entitlementHoursManualByYear.value = manual;
+  entitlementNotesByYear.value = { ...notesByYear };
   persistProfile();
   recomputeEntitlement();
   entitlementVersion.value += 1;
@@ -315,6 +338,7 @@ export default {
   entitlementDaysByYear,
   entitlementRemainingHoursByYear,
   entitlementHoursManualByYear,
+  entitlementNotesByYear,
   entitlementEditorOpen,
   openEntitlementEditor,
   persistProfile,

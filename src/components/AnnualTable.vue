@@ -18,6 +18,7 @@
           <th class="num-col">疫苗假</th>
           <th class="num-col">公假</th>
           <th class="num-col">婚假</th>
+          <th class="note-col">備註</th>
         </tr>
       </template>
       <template #body="{ rows: pageRows }">
@@ -61,6 +62,7 @@
             class="num-col"
             v-html="renderDaysHtml(entry.typeHours['婚假'])"
           ></td>
+          <td class="note-col">{{ getNoteForYear(entry.year) }}</td>
         </tr>
       </template>
     </DataTable>
@@ -143,6 +145,10 @@ function renderRemainingHtml(entry: {
   return renderDaysHtml(hours);
 }
 
+function getNoteForYear(year: number) {
+  return store.entitlementNotesByYear.value[year] || "";
+}
+
 onMounted(async () => {
   if (!store.allItems.value || store.allItems.value.length === 0) {
     await loadForms();
@@ -153,5 +159,14 @@ onMounted(async () => {
 <style scoped>
 .leave-split {
   border-left: 1px dashed #dddde4;
+}
+
+.note-col {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
