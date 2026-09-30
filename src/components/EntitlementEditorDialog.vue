@@ -37,7 +37,7 @@
         v-else
         class="year-list"
         role="group"
-        aria-label="各年度特休天數、剩餘小時與換薪時數"
+        aria-label="各年度特休天數、剩餘小時與換薪/扣薪時數"
       >
         <div class="year-head" aria-hidden="true">
           <span></span>
@@ -45,7 +45,7 @@
           <span></span>
           <span> 前一年度剩餘小時</span>
           <span></span>
-          <span>換薪時數</span>
+          <span>換薪/扣薪 時數</span>
         </div>
         <div v-for="year in years" :key="year" class="year-row">
           <span class="year-label">{{ year }}</span>
@@ -83,10 +83,10 @@
             </button>
           </div>
           <span class="year-unit">小時</span>
-          <span class="payout" :aria-label="`${year} 年換薪時數`">
+          <span class="payout" :aria-label="`${year} 年換薪/扣薪時數`">
             {{ payoutHourText(year) }}
           </span>
-          <span class="year-unit">小時</span>
+          <span class="year-unit"></span>
         </div>
       </div>
 
@@ -269,14 +269,17 @@ function getCarryIntoYear(year: number): number {
 }
 
 function defaultHourText(year: number) {
+  const hireYear = Number(String(draftHireDate.value || "").split("-")[0]);
+  // For hire year or earlier, show placeholder (no calculation possible)
+  if (!hireYear || year <= hireYear) return "";
   const carry = getCarryIntoYear(year);
-  return carry > 0 ? String(carry) : "";
+  return String(carry);
 }
 
 function payoutHourText(year: number) {
   const dayText = String(yearInputs[year] ?? "").trim();
   const days = dayText === "" ? null : Number(dayText);
-  if (days === null || !Number.isFinite(days)) return "—";
+  if (days === null || !Number.isFinite(days)) return "";
   const hourText = String(hourInputs[year] ?? "").trim();
   const extra = hourText === "" ? 0 : Number(hourText);
   const carry = Number.isFinite(extra) && extra > 0 ? extra : 0;
@@ -286,8 +289,19 @@ function payoutHourText(year: number) {
   const used = Number(entry?.typeHours?.["年假"]) || 0;
   const base = days * 8;
   const remaining = base + carry - used;
-  const payout = remaining > base ? remaining - base : 0;
-  return String(Math.round(payout * 100) / 100);
+
+  if (remaining < 0) {
+    // 超用時數，需要扣薪
+    const deduct = Math.round(Math.abs(remaining) * 100) / 100;
+    return `扣薪 ${deduct} 小時`;
+  }
+  if (remaining > base) {
+    // 有多餘時數可換薪
+    const payout = Math.round((remaining - base) * 100) / 100;
+    return `換薪 ${payout} 小時`;
+  }
+  // 沒有換薪或扣薪
+  return "";
 }
 
 function close() {
@@ -470,9 +484,9 @@ function onSave() {
 .year-row {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(
-      72px,
+      100px,
       auto
-    ) auto;
+    ) 0;
   align-items: center;
   gap: 10px;
 }
@@ -491,9 +505,10 @@ function onSave() {
 
 .payout {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  text-align: right;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .year-label,
