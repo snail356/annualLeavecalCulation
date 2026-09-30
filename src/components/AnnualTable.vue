@@ -74,7 +74,12 @@ import DataTable from "./DataTable.vue";
 
 const pageSize = defineModel<number>("pageSize", { default: 10 });
 
-const rows = computed(() => store.annualTotals.value || []);
+// Include entitlementVersion to trigger re-render when entitlement settings change
+const rows = computed(() => {
+  // Access entitlementVersion to create dependency
+  void store.entitlementVersion.value;
+  return store.annualTotals.value || [];
+});
 
 function splitDaysHours(hours: number | string) {
   const total = Number(hours) || 0;

@@ -103,6 +103,7 @@ export const saveEntitlementProfile = (
   entitlementHoursManualByYear.value = manual;
   persistProfile();
   recomputeEntitlement();
+  entitlementVersion.value += 1;
 };
 
 readStoredProfile();
@@ -110,6 +111,7 @@ readStoredProfile();
 export const totalRemainingHours = ref<number | null>(null);
 export const annualLeaveByYear = ref(new Map<number, number>());
 export const annualLeaveUsageByYear = ref(new Map<number, number>());
+export const entitlementVersion = ref(0);
 
 export const annualTotals = ref<
   Array<{ year: number; totalHours: number; typeHours: Record<string, number> }>
@@ -256,6 +258,16 @@ const usedAnnualHours = (year: number) => {
 export const carryHoursIntoYear = (year: number) => {
   const hireYear = hireYearOf(year);
   if (hireYear === null || year <= hireYear) return 0;
+
+  // If user manually set remaining hours for this year, use it directly
+  if (entitlementHoursManualByYear.value[year]) {
+    const manualHours = entitlementRemainingHoursByYear.value[year];
+    if (Number.isFinite(manualHours)) {
+      return Math.round(manualHours * 100) / 100;
+    }
+  }
+
+  // Auto-calculate based on previous years
   let carry = 0;
   for (let current = hireYear; current < year; current += 1) {
     const days = entitlementDaysByYear.value[current];
@@ -309,6 +321,7 @@ export default {
   annualLeaveByYear,
   annualLeaveUsageByYear,
   annualTotals,
+  entitlementVersion,
   applyData,
   computeAnnualTotals,
   computeAnnualLeaveUsage,
