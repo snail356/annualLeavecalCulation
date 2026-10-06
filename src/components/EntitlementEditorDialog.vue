@@ -13,20 +13,27 @@
         2 天 5 小時會帶成 21。
       </p>
 
-      <div class="field date-field" @click="openHireDatePicker">
-        <label for="dialog-hire-date">到職年月</label>
-        <div class="month-input-wrap">
-          <span class="month-display" :class="{ muted: !draftHireDate }">
-            {{ hireDateLabel }}
-          </span>
-          <i class="fa-regular fa-calendar month-icon" aria-hidden="true"></i>
-          <input
-            ref="hireDateInput"
-            id="dialog-hire-date"
-            class="month-native"
-            type="month"
-            v-model="draftHireDate"
-          />
+      <div class="field date-field">
+        <label>到職年月</label>
+        <div class="date-select-wrap">
+          <select
+            v-model="selectedYear"
+            class="date-select"
+            aria-label="到職年"
+          >
+            <option value="">年</option>
+            <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
+          </select>
+          <span class="date-select-unit">年</span>
+          <select
+            v-model="selectedMonth"
+            class="date-select"
+            aria-label="到職月"
+          >
+            <option value="">月</option>
+            <option v-for="m in monthOptions" :key="m" :value="m">{{ m }}</option>
+          </select>
+          <span class="date-select-unit">月</span>
         </div>
       </div>
 
@@ -114,13 +121,61 @@ import { computed, nextTick, reactive, ref, watch } from "vue";
 import store from "../store";
 
 const dialogEl = ref<HTMLDialogElement | null>(null);
-const hireDateInput = ref<HTMLInputElement | null>(null);
 const draftHireDate = ref("");
 const yearInputs = reactive<Record<number, string>>({});
 const hourInputs = reactive<Record<number, string>>({});
 const hourManual = reactive<Record<number, boolean>>({});
 const noteInputs = reactive<Record<number, string>>({});
 const errorText = ref("");
+
+// 年份選項：從 1990 到今年
+const yearOptions = computed(() => {
+  const currentYear = new Date().getFullYear();
+  const options: number[] = [];
+  for (let y = currentYear; y >= 1990; y--) options.push(y);
+  return options;
+});
+
+// 月份選項：1-12
+const monthOptions = computed(() => {
+  return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+});
+
+// 選擇的年份
+const selectedYear = computed({
+  get: () => {
+    const parts = draftHireDate.value.split("-");
+    return parts[0] ? Number(parts[0]) : "";
+  },
+  set: (val: number | string) => {
+    const month = selectedMonth.value;
+    if (val && month) {
+      draftHireDate.value = `${val}-${String(month).padStart(2, "0")}`;
+    } else if (val) {
+      draftHireDate.value = `${val}-`;
+    } else {
+      draftHireDate.value = "";
+    }
+  },
+});
+
+// 選擇的月份
+const selectedMonth = computed({
+  get: () => {
+    const parts = draftHireDate.value.split("-");
+    return parts[1] ? Number(parts[1]) : "";
+  },
+  set: (val: number | string) => {
+    const year = selectedYear.value;
+    if (year && val) {
+      draftHireDate.value = `${year}-${String(val).padStart(2, "0")}`;
+    } else if (year) {
+      draftHireDate.value = `${year}-`;
+    } else {
+      draftHireDate.value = "";
+    }
+  },
+});
 
 const years = computed(() => {
   const hireYear = Number(String(draftHireDate.value || "").split("-")[0]);
@@ -129,14 +184,6 @@ const years = computed(() => {
   const list: number[] = [];
   for (let year = hireYear; year <= end; year += 1) list.push(year);
   return list;
-});
-
-const hireDateLabel = computed(() => {
-  const value = String(draftHireDate.value || "");
-  if (!value) return "請選擇年月";
-  const [year, month] = value.split("-");
-  if (!year || !month) return "請選擇年月";
-  return `${year}年 ${Number(month)}月`;
 });
 
 watch(years, (list) => {
@@ -336,22 +383,6 @@ function onBackdropClick(event: MouseEvent) {
   if (event.target === dialogEl.value) close();
 }
 
-function openHireDatePicker() {
-  const input = hireDateInput.value;
-  if (!input) return;
-  const pickerInput = input as HTMLInputElement & { showPicker?: () => void };
-  if (typeof pickerInput.showPicker === "function") {
-    try {
-      pickerInput.showPicker();
-      return;
-    } catch {
-      // showPicker throws if the input is not yet focused in some browsers
-    }
-  }
-  input.focus();
-  input.click();
-}
-
 function onSave() {
   if (!/^\d{4}-\d{2}$/.test(draftHireDate.value)) {
     errorText.value = "請選擇到職年月";
@@ -442,59 +473,49 @@ function onSave() {
   gap: 8px;
 }
 
-.field label,
-.date-field,
-.date-field input {
-  cursor: pointer;
-}
-
 .field label {
   font-size: 13px;
   color: var(--muted);
   font-weight: 600;
 }
 
-.month-input-wrap {
-  position: relative;
+.date-select-wrap {
   display: flex;
   align-items: center;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 40px 8px 16px;
+  gap: 8px;
+}
+
+.date-select {
+  height: 40px;
+  padding: 0 12px;
+  border: none;
   border-radius: 999px;
   background: #f6f6f8;
-  box-sizing: border-box;
-}
-
-.month-display {
-  font-size: 14px;
   color: var(--ink);
-  line-height: 1.4;
-  pointer-events: none;
-}
-
-.month-display.muted {
-  color: var(--muted);
-}
-
-.month-icon {
-  position: absolute;
-  right: 14px;
-  color: var(--muted);
   font-size: 14px;
-  pointer-events: none;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
 }
 
-.month-native {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  opacity: 0;
-  cursor: pointer;
+.date-select:focus {
+  outline: 2px solid #1c1c1f;
+  outline-offset: 1px;
+}
+
+.date-select option {
+  font-weight: 500;
+}
+
+.date-select-unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .year-list {
