@@ -13,6 +13,7 @@ export const entitlementDaysByYear = ref<Record<number, number>>({});
 export const entitlementRemainingHoursByYear = ref<Record<number, number>>({});
 export const entitlementHoursManualByYear = ref<Record<number, boolean>>({});
 export const entitlementNotesByYear = ref<Record<number, string>>({});
+export const entitlementExtraDeductionByYear = ref<Record<number, number>>({});
 export const entitlementEditorOpen = ref(false);
 
 const PROFILE_STORAGE_KEY = "annual-leave-profile";
@@ -43,6 +44,19 @@ const readYearStrings = (raw: unknown) => {
   return next;
 };
 
+const readYearNumbersAllowNegative = (raw: unknown) => {
+  const next: Record<number, number> = {};
+  if (!raw || typeof raw !== "object") return next;
+  Object.entries(raw as Record<string, unknown>).forEach(([yearText, value]) => {
+    const year = Number(yearText);
+    const amount = Number(value);
+    if (year < 1900 || year > 2100) return;
+    if (!Number.isFinite(amount)) return;
+    next[year] = Math.round(amount * 100) / 100;
+  });
+  return next;
+};
+
 const readStoredProfile = () => {
   try {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
@@ -53,6 +67,7 @@ const readStoredProfile = () => {
       remainingHoursByYear?: unknown;
       remainingHoursManual?: unknown;
       notesByYear?: unknown;
+      extraDeductionByYear?: unknown;
     };
     if (typeof data.hireDate === "string" && /^\d{4}-\d{2}$/.test(data.hireDate)) {
       hireDate.value = data.hireDate;
@@ -68,6 +83,7 @@ const readStoredProfile = () => {
     }
     entitlementHoursManualByYear.value = manual;
     entitlementNotesByYear.value = readYearStrings(data.notesByYear);
+    entitlementExtraDeductionByYear.value = readYearNumbersAllowNegative(data.extraDeductionByYear);
   } catch {
     // ignore unreadable storage
   }
@@ -87,6 +103,10 @@ export const persistProfile = () => {
     Object.entries(entitlementNotesByYear.value).forEach(([year, note]) => {
       if (note && note.trim()) notesByYear[year] = note.trim();
     });
+    const extraDeductionByYear: Record<string, number> = {};
+    Object.entries(entitlementExtraDeductionByYear.value).forEach(([year, hours]) => {
+      if (hours) extraDeductionByYear[year] = hours;
+    });
     localStorage.setItem(
       PROFILE_STORAGE_KEY,
       JSON.stringify({
@@ -97,6 +117,7 @@ export const persistProfile = () => {
           (year) => entitlementHoursManualByYear.value[Number(year)],
         ),
         notesByYear,
+        extraDeductionByYear,
       }),
     );
   } catch {
@@ -114,6 +135,7 @@ export const saveEntitlementProfile = (
   remainingHoursByYear: Record<number, number> = {},
   manualYears: number[] = [],
   notesByYear: Record<number, string> = {},
+  extraDeductionByYear: Record<number, number> = {},
 ) => {
   hireDate.value = nextHireDate;
   entitlementDaysByYear.value = { ...daysByYear };
@@ -124,6 +146,7 @@ export const saveEntitlementProfile = (
   });
   entitlementHoursManualByYear.value = manual;
   entitlementNotesByYear.value = { ...notesByYear };
+  entitlementExtraDeductionByYear.value = { ...extraDeductionByYear };
   persistProfile();
   recomputeEntitlement();
   entitlementVersion.value += 1;
@@ -301,8 +324,11 @@ export const carryHoursIntoYear = (year: number) => {
   // Get the carry INTO prevYear (recursive call, respects manual overrides)
   const carryIntoPrev = carryHoursIntoYear(prevYear);
 
-  // prevYear's remaining = base + carryIntoPrev - used
-  const remaining = base + carryIntoPrev - usedAnnualHours(prevYear);
+  // Carry the previous year's leftover after extra deduction.
+  // Negative leftover does not roll forward.
+  const extraDeduction = entitlementExtraDeductionByYear.value[prevYear] || 0;
+  const remaining =
+    base + carryIntoPrev - usedAnnualHours(prevYear) - extraDeduction;
   if (remaining <= 0) return 0;
   // Cap at base hours (can't carry more than the previous year's entitlement)
   return Math.round(Math.min(remaining, base) * 100) / 100;
@@ -318,7 +344,8 @@ export const remainingHoursForYear = (year: number, usedHours: number) => {
   const days = getEntitlementDays(year);
   if (days === null) return null;
   const extra = carryHoursIntoYear(year);
-  return days * 8 + extra - (Number(usedHours) || 0);
+  const extraDeduction = entitlementExtraDeductionByYear.value[year] || 0;
+  return days * 8 + extra - (Number(usedHours) || 0) - extraDeduction;
 };
 
 export const getAnnualLeaveHoursByYear = (year: number) => {
@@ -339,6 +366,7 @@ export default {
   entitlementRemainingHoursByYear,
   entitlementHoursManualByYear,
   entitlementNotesByYear,
+  entitlementExtraDeductionByYear,
   entitlementEditorOpen,
   openEntitlementEditor,
   persistProfile,

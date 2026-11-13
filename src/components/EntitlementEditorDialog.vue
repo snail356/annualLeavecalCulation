@@ -52,6 +52,8 @@
           <span></span>
           <span>前一年度剩餘小時</span>
           <span></span>
+          <span>額外扣除</span>
+          <span></span>
           <span>換薪/扣薪 時數</span>
           <span>備註</span>
         </div>
@@ -91,6 +93,17 @@
             </button>
           </div>
           <span class="year-unit">小時</span>
+          <input
+            v-model="extraDeductionInputs[year]"
+            class="year-input extra-deduction-input"
+            type="number"
+            step="0.5"
+            inputmode="decimal"
+            placeholder=""
+            :aria-label="`${year} 年額外扣除小時`"
+            @input="refreshAutoHours"
+          />
+          <span class="year-unit">小時</span>
           <span class="payout" :aria-label="`${year} 年換薪/扣薪時數`">
             {{ payoutHourText(year) }}
           </span>
@@ -126,6 +139,7 @@ const yearInputs = reactive<Record<number, string>>({});
 const hourInputs = reactive<Record<number, string>>({});
 const hourManual = reactive<Record<number, boolean>>({});
 const noteInputs = reactive<Record<number, string>>({});
+const extraDeductionInputs = reactive<Record<number, string>>({});
 const errorText = ref("");
 
 // 年份選項：從 1990 到今年
@@ -203,6 +217,10 @@ watch(years, (list) => {
     const year = Number(key);
     if (!keep.has(year)) delete noteInputs[year];
   });
+  Object.keys(extraDeductionInputs).forEach((key) => {
+    const year = Number(key);
+    if (!keep.has(year)) delete extraDeductionInputs[year];
+  });
   list.forEach((year) => {
     if (yearInputs[year] === undefined) {
       const saved = store.entitlementDaysByYear.value[year];
@@ -211,6 +229,10 @@ watch(years, (list) => {
     if (hourInputs[year] === undefined) fillHour(year);
     if (noteInputs[year] === undefined) {
       noteInputs[year] = store.entitlementNotesByYear.value[year] || "";
+    }
+    if (extraDeductionInputs[year] === undefined) {
+      const saved = store.entitlementExtraDeductionByYear.value[year];
+      extraDeductionInputs[year] = Number.isFinite(saved) && saved !== 0 ? String(saved) : "";
     }
   });
 });
@@ -241,13 +263,19 @@ function resetDraft() {
   Object.keys(noteInputs).forEach((key) => {
     delete noteInputs[Number(key)];
   });
+  Object.keys(extraDeductionInputs).forEach((key) => {
+    delete extraDeductionInputs[Number(key)];
+  });
   const savedDays = store.entitlementDaysByYear.value;
   const savedNotes = store.entitlementNotesByYear.value;
+  const savedExtraDeduction = store.entitlementExtraDeductionByYear.value;
   years.value.forEach((year) => {
     const days = savedDays[year];
     yearInputs[year] = Number.isFinite(days) ? String(days) : "";
     fillHour(year);
     noteInputs[year] = savedNotes[year] || "";
+    const extra = savedExtraDeduction[year];
+    extraDeductionInputs[year] = Number.isFinite(extra) && extra !== 0 ? String(extra) : "";
   });
 }
 
@@ -329,7 +357,10 @@ function getCarryIntoYear(year: number): number {
     (row) => row.year === prevYear,
   );
   const used = Number(entry?.typeHours?.["年假"]) || 0;
-  const remaining = base + carryIntoPrev - used;
+  const extraDeductText = String(extraDeductionInputs[prevYear] ?? "").trim();
+  const extraDeduct = extraDeductText === "" ? 0 : Number(extraDeductText);
+  const extraDeduction = Number.isFinite(extraDeduct) ? extraDeduct : 0;
+  const remaining = base + carryIntoPrev - used - extraDeduction;
   if (remaining <= 0) return 0;
   // Cap at base hours
   return Math.round(Math.min(remaining, base) * 100) / 100;
@@ -354,8 +385,11 @@ function payoutHourText(year: number) {
     (row) => row.year === year,
   );
   const used = Number(entry?.typeHours?.["年假"]) || 0;
+  const extraDeductText = String(extraDeductionInputs[year] ?? "").trim();
+  const extraDeduct = extraDeductText === "" ? 0 : Number(extraDeductText);
+  const extraDeduction = Number.isFinite(extraDeduct) ? extraDeduct : 0;
   const base = days * 8;
-  const remaining = base + carry - used;
+  const remaining = base + carry - used - extraDeduction;
 
   if (remaining < 0) {
     // 超用時數，需要扣薪
@@ -391,10 +425,12 @@ function onSave() {
   const nextDays: Record<number, number> = {};
   const nextHours: Record<number, number> = {};
   const nextNotes: Record<number, string> = {};
+  const nextExtraDeduction: Record<number, number> = {};
   for (const year of years.value) {
     const dayText = String(yearInputs[year] ?? "").trim();
     const hourText = String(hourInputs[year] ?? "").trim();
     const noteText = String(noteInputs[year] ?? "").trim();
+    const extraDeductText = String(extraDeductionInputs[year] ?? "").trim();
     if (dayText) {
       const days = Number(dayText);
       if (!Number.isFinite(days) || days < 0) {
@@ -414,6 +450,14 @@ function onSave() {
     if (noteText) {
       nextNotes[year] = noteText;
     }
+    if (extraDeductText) {
+      const extraDeduct = Number(extraDeductText);
+      if (!Number.isFinite(extraDeduct)) {
+        errorText.value = `${year} 年的額外扣除小時不正確`;
+        return;
+      }
+      nextExtraDeduction[year] = Math.round(extraDeduct * 100) / 100;
+    }
   }
   errorText.value = "";
   const manualYears = years.value.filter((year) => hourManual[year]);
@@ -423,6 +467,7 @@ function onSave() {
     nextHours,
     manualYears,
     nextNotes,
+    nextExtraDeduction,
   );
   close();
 }
@@ -430,7 +475,7 @@ function onSave() {
 
 <style scoped>
 .entitlement-dialog {
-  width: min(800px, calc(100vw - 32px));
+  width: min(900px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   margin: auto;
   padding: 0;
@@ -531,23 +576,24 @@ function onSave() {
 .year-row {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(
-      100px,
+      60px,
       auto
-    ) minmax(80px, 1fr);
+    ) auto minmax(90px, auto) minmax(70px, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .year-head {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .year-head span:nth-child(2),
 .year-head span:nth-child(4),
 .year-head span:nth-child(6),
-.year-head span:nth-child(7) {
+.year-head span:nth-child(8),
+.year-head span:nth-child(9) {
   padding-left: 4px;
 }
 
@@ -632,6 +678,18 @@ function onSave() {
 }
 
 .note-input::placeholder {
+  color: #bbb;
+}
+
+.extra-deduction-input {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 10px;
+  height: 36px;
+  width: 60px;
+}
+
+.extra-deduction-input::placeholder {
   color: #bbb;
 }
 

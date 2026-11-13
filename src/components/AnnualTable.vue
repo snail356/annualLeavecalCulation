@@ -11,6 +11,7 @@
           <th>年度</th>
           <th class="num-col">年度特休時數</th>
           <th class="num-col">已使用特休時數</th>
+          <th class="num-col">額外扣除</th>
           <th class="num-col">剩餘時數</th>
           <th class="num-col leave-split">病假</th>
           <th class="num-col">生理假</th>
@@ -32,6 +33,10 @@
             class="num-col"
             :class="{ 'annual-bold': entry.typeHours['年假'] !== 0 }"
             v-html="renderDaysHtml(entry.typeHours['年假'])"
+          ></td>
+          <td
+            class="num-col extra-deduct-col"
+            v-html="renderExtraDeductionHtml(entry.year)"
           ></td>
           <td
             class="num-col"
@@ -149,6 +154,12 @@ function getNoteForYear(year: number) {
   return store.entitlementNotesByYear.value[year] || "";
 }
 
+function renderExtraDeductionHtml(year: number) {
+  const deduction = store.entitlementExtraDeductionByYear.value[year];
+  if (!deduction || deduction === 0) return '<span class="muted">-</span>';
+  return renderDaysHtml(deduction);
+}
+
 onMounted(async () => {
   if (!store.allItems.value || store.allItems.value.length === 0) {
     await loadForms();
@@ -168,5 +179,9 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.extra-deduct-col {
+  color: var(--muted);
 }
 </style>
